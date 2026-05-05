@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  LayoutDashboard, Users, UserCog, Target, Phone, BarChart3, CalendarCheck,
+  Users, UserCog, Target, Phone, BarChart3, CalendarCheck,
   LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft,
 } from 'lucide-react'
 import { logout, getCurrentUser } from '../api/auth/authService'
@@ -35,7 +35,6 @@ const C = {
 function getNav(role) {
   if (role === 'super_admin') {
     return [
-      { label: 'Dashboard', icon: LayoutDashboard, href: '/app/dashboard' },
       { label: 'Organizations', icon: Building2, href: '/app/organizations' },
       { label: 'Contacts', icon: Users, href: '/app/contacts' },
       { label: 'Calls', icon: Phone, href: '/app/calls' },
@@ -45,14 +44,13 @@ function getNav(role) {
   }
 
   const base = [
-    { label: 'Dashboard', icon: LayoutDashboard, href: '/app/dashboard' },
     { label: 'Contacts', icon: Users, href: '/app/contacts' },
     { label: 'Calls', icon: Phone, href: '/app/calls' },
     { label: 'Conversations', icon: MessageSquare, href: '/app/conversations' },
     { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
   ]
   if (role === 'org_admin') {
-    base.splice(1, 0, { label: 'Users', icon: UserCog, href: '/app/users' })
+    base.unshift({ label: 'Users', icon: UserCog, href: '/app/users' })
   }
   return base
 }

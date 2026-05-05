@@ -6,7 +6,6 @@ import CustomersPage  from './pages/CustomersPage'
 import PricingPage    from './pages/PricingPage'
 import BookDemoPage   from './pages/BookDemoPage'
 import AppLayout   from './layouts/AppLayout'
-import Dashboard   from './pages/dashboard/Dashboard'
 import Placeholder from './pages/Placeholder'
 import OrganizationsPage from './pages/superadmin/OrganizationsPage'
 import UsersPage from './pages/superadmin/UsersPage'
@@ -28,24 +27,23 @@ function AppRoutes() {
   return (
     <AppLayout role={role}>
       <Routes>
-        <Route path="dashboard"  element={<Dashboard />} />
         <Route
           path="organizations"
-          element={role === 'super_admin' ? <OrganizationsPage /> : <Navigate to="/app/dashboard" replace />}
+          element={role === 'super_admin' ? <OrganizationsPage /> : <Navigate to="/app/analytics" replace />}
         />
         <Route
           path="organizations/:orgId"
-          element={role === 'super_admin' ? <OrganizationDetailsPage /> : <Navigate to="/app/dashboard" replace />}
+          element={role === 'super_admin' ? <OrganizationDetailsPage /> : <Navigate to="/app/analytics" replace />}
         />
         <Route
           path="users"
-          element={role === 'org_admin' ? <UsersPage /> : <Navigate to="/app/dashboard" replace />}
+          element={role === 'org_admin' ? <UsersPage /> : <Navigate to="/app/analytics" replace />}
         />
         <Route path="contacts"   element={<ContactsPage />} />
         <Route path="calls"      element={<CallsPage />} />
         <Route path="conversations" element={<ConversationsPage />} />
         <Route path="analytics"  element={<AnalyticsPage />} />
-        <Route path="*"          element={<Navigate to="dashboard" replace />} />
+        <Route path="*"          element={<Navigate to="analytics" replace />} />
       </Routes>
     </AppLayout>
   )

@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Activity,
   ArrowDown,
+  Bot,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Gauge,
+  Phone,
+  Smile,
+  User as UserIcon,
+  XCircle,
   ArrowLeft,
   ArrowUp,
   Check,
@@ -26,7 +35,9 @@ import {
   UserCheck,
   X,
 } from 'lucide-react'
-import { getConversation, listConversations } from '../../api/analytics/analyticsService'
+import { getConversation, getConversationAudio, listConversations } from '../../api/analytics/analyticsService'
+import { getCurrentUser } from '../../api/auth/authService'
+import { listOrganizations } from '../../api/orgs/orgService'
 
 const OUTCOME_META = {
   SUCCESS: { label: 'Success', tone: 'green' },
@@ -116,7 +127,7 @@ function scoreBarClass(score) {
 function detailTitle(data, summary) {
   return data?.analysis?.call_summary_title
     || data?._enrichment?.call_overview?.call_summary_title
-    || summary?.agent_name
+    || summary?.contact_name
     || 'Conversation review'
 }
 
@@ -126,7 +137,7 @@ function Surface({ className = '', children, tint = 'white' }) {
     : 'bg-white'
 
   return (
-    <div className={`rounded-xl ${bg} shadow-[0_16px_40px_rgba(15,23,42,0.06)] ${className}`}>
+    <div className={`rounded-md ${bg} shadow-[0_16px_40px_rgba(15,23,42,0.06)] ${className}`}>
       {children}
     </div>
   )
@@ -200,18 +211,6 @@ function ArticleSection({ title, icon: Icon, children }) {
   )
 }
 
-function SideSection({ title, icon: Icon, children }) {
-  return (
-    <section>
-      <div className="mb-4 flex items-center gap-2">
-        {Icon && <Icon size={15} className="text-slate-500" />}
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      </div>
-      {children}
-    </section>
-  )
-}
-
 function GaugeRow({ label, score }) {
   const value = getScoreValue(score)
   const pct = value == null ? 0 : Math.max(0, Math.min(100, (value / 10) * 100))
@@ -231,28 +230,318 @@ function GaugeRow({ label, score }) {
   )
 }
 
-function MetaRow({ label, value }) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-right text-xs font-medium text-slate-700">{value || '-'}</span>
-    </div>
-  )
-}
-
 function SignalBadge({ label, value, good = false, bad = false }) {
   if (value == null) return null
   const positive = (good && value) || (bad && !value)
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${
-      positive
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${positive
         ? 'bg-emerald-50 text-emerald-700'
         : 'bg-rose-50 text-rose-700'
-    }`}
+      }`}
     >
       {value ? <Check size={11} /> : <X size={11} />}
       {label}
     </span>
+  )
+}
+
+function ScoreRing({ score, size = 96 }) {
+  const value = getScoreValue(score)
+  const pct = value == null ? 0 : Math.max(0, Math.min(100, (value / 10) * 100))
+  const stroke = 8
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const offset = c - (pct / 100) * c
+  const color = value == null ? '#cbd5e1'
+    : value >= 8 ? '#10b981'
+      : value >= 6 ? '#0ea5e9'
+        : value >= 4 ? '#f59e0b'
+          : '#f43f5e'
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#e2e8f0" strokeWidth={stroke} fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          fill="none"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-xl font-bold text-slate-900">
+          {value == null ? '-' : value.toFixed(1)}
+        </span>
+        <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-400">/10</span>
+      </div>
+    </div>
+  )
+}
+
+function HeroStat({ icon: Icon, label, value, accent = 'indigo' }) {
+  const tones = {
+    indigo: 'from-indigo-50 to-white text-indigo-600 ring-indigo-100',
+    sky: 'from-sky-50 to-white text-sky-600 ring-sky-100',
+    emerald: 'from-emerald-50 to-white text-emerald-600 ring-emerald-100',
+    amber: 'from-amber-50 to-white text-amber-600 ring-amber-100',
+    violet: 'from-violet-50 to-white text-violet-600 ring-violet-100',
+    rose: 'from-rose-50 to-white text-rose-600 ring-rose-100',
+  }
+  return (
+    <div className={`flex items-center gap-3 rounded-md bg-gradient-to-br p-4 ring-1 ${tones[accent] || tones.indigo}`}>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+        {Icon && <Icon size={18} />}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+        <p className="mt-0.5 truncate text-sm font-bold text-slate-900">{value || '-'}</p>
+      </div>
+    </div>
+  )
+}
+
+function IconMetaRow({ icon: Icon, label, value }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white text-slate-500 shadow-sm ring-1 ring-slate-100">
+        {Icon && <Icon size={13} />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+        <p className="mt-0.5 break-words text-sm font-semibold text-slate-800">{value || '-'}</p>
+      </div>
+    </div>
+  )
+}
+
+function SignalCheck({ label, value, good = false, bad = false }) {
+  if (value == null) return null
+  const positive = (good && value) || (bad && !value)
+  return (
+    <div className={`flex items-center gap-2 rounded-lg px-3 py-2 ring-1 ${positive
+        ? 'bg-emerald-50/60 text-emerald-700 ring-emerald-100'
+        : 'bg-rose-50/60 text-rose-700 ring-rose-100'
+      }`}>
+      {positive
+        ? <CheckCircle2 size={14} className="shrink-0" />
+        : <XCircle size={14} className="shrink-0" />}
+      <span className="truncate text-xs font-semibold">{label}</span>
+    </div>
+  )
+}
+
+function ActionItemCard({ task, owner, due }) {
+  return (
+    <div className="group relative overflow-hidden rounded-md bg-white p-4 ring-1 ring-slate-100 transition hover:ring-indigo-200">
+      <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-400 to-violet-400" />
+      <div className="flex items-start gap-3 pl-2">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+          <CheckCircle2 size={14} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-slate-800">{task || 'Action item'}</p>
+          {(owner || due) && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {owner && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-sky-700">
+                  <UserIcon size={10} /> {owner}
+                </span>
+              )}
+              {due && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                  <Clock size={10} /> {String(due).replace(/_/g, ' ')}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TranscriptBubble({ turn }) {
+  const isAgent = turn.role === 'agent'
+  return (
+    <div className={`flex gap-3 ${isAgent ? '' : 'flex-row-reverse'}`}>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isAgent
+          ? 'bg-gradient-to-br from-indigo-500 to-violet-500 text-white'
+          : 'bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700'
+        }`}>
+        {isAgent ? <Bot size={16} /> : <UserIcon size={16} />}
+      </span>
+      <div className={`max-w-[75%] ${isAgent ? '' : 'text-right'}`}>
+        <div className={`mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 ${isAgent ? '' : 'justify-end'
+          }`}>
+          <span>{turn.role || 'Unknown'}</span>
+          {turn.time_in_call_secs != null && <span>{formatDuration(turn.time_in_call_secs)}</span>}
+          {turn.interrupted && <span className="text-amber-600">Interrupted</span>}
+        </div>
+        <div className={`inline-block rounded-lg px-4 py-3 text-sm leading-6 shadow-sm ring-1 ${isAgent
+            ? 'rounded-tl-sm bg-indigo-50 text-slate-800 ring-indigo-100'
+            : 'rounded-tr-sm bg-white text-slate-800 ring-slate-100'
+          }`}>
+          {turn.message}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PlayingAudio({ src, bars }) {
+  const audioRef = useRef(null)
+  const [playing, setPlaying] = useState(false)
+
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="flex h-20 items-end gap-[3px]">
+        {bars.map((height, index) => (
+          <div
+            key={index}
+            className={`flex-1 rounded-full bg-gradient-to-t transition-all duration-300 ${playing
+                ? 'from-indigo-500 via-sky-500 to-violet-300 audio-bar'
+                : 'from-slate-300 via-slate-200 to-slate-100'
+              }`}
+            style={
+              playing
+                ? {
+                  height: `${height}%`,
+                  animationDelay: `${(index % 12) * 80}ms`,
+                }
+                : { height: `${height}%` }
+            }
+          />
+        ))}
+      </div>
+      <audio
+        ref={audioRef}
+        src={src}
+        controls
+        preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        className="w-full"
+      />
+    </div>
+  )
+}
+
+function OrgPicker({ value, onChange, orgs, loading }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function onClick(event) {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const selected = orgs.find((org) => org.org_id === value)
+  const filtered = query
+    ? orgs.filter((org) => (org.name || org.org_id).toLowerCase().includes(query.toLowerCase()))
+    : orgs
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`group flex h-11 min-w-[220px] items-center gap-2 rounded-md border bg-white px-3 text-left text-xs font-semibold shadow-sm transition ${open
+            ? 'border-indigo-300 ring-2 ring-indigo-100'
+            : 'border-slate-200 hover:border-slate-300'
+          }`}
+      >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+          <Building2 size={14} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            Organization
+          </span>
+          <span className="truncate text-sm font-semibold text-slate-800">
+            {loading
+              ? 'Loading…'
+              : selected
+                ? (selected.name || selected.org_id)
+                : (orgs.length ? 'Select organization' : 'No organizations')}
+          </span>
+        </span>
+        <ChevronDown
+          size={14}
+          className={`text-slate-400 transition ${open ? 'rotate-180 text-indigo-500' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-30 mt-2 w-[300px] overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_24px_56px_rgba(15,23,42,0.12)]">
+          <div className="border-b border-slate-100 p-2">
+            <div className="flex h-9 items-center gap-2 rounded-md bg-slate-50 px-3">
+              <Search size={14} className="text-slate-400" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search organizations"
+                className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-y-auto py-1">
+            {loading ? (
+              <div className="px-4 py-6 text-center text-xs text-slate-400">Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-slate-400">
+                No organizations match
+              </div>
+            ) : (
+              filtered.map((org) => {
+                const active = org.org_id === value
+                return (
+                  <button
+                    key={org.org_id}
+                    type="button"
+                    onClick={() => {
+                      onChange(org.org_id)
+                      setOpen(false)
+                      setQuery('')
+                    }}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition ${active ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
+                      }`}
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold ${active
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-slate-100 text-slate-500'
+                      }`}>
+                      {(org.name || org.org_id).slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className={`truncate text-sm font-semibold ${active ? 'text-indigo-700' : 'text-slate-800'
+                        }`}>
+                        {org.name || org.org_id}
+                      </span>
+                      <span className="truncate font-mono text-[10px] text-slate-400">
+                        {org.org_id}
+                      </span>
+                    </span>
+                    {active && <Check size={14} className="text-indigo-500" />}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -300,7 +589,7 @@ function SentimentChart({ points }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl bg-gradient-to-br from-slate-50 to-white p-4 ring-1 ring-slate-100">
+    <div className="overflow-hidden rounded-md bg-gradient-to-br from-slate-50 to-white p-4 ring-1 ring-slate-100">
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id="sentArea" x1="0" y1="0" x2="0" y2="1">
@@ -374,18 +663,44 @@ function SentimentChart({ points }) {
 function DetailSkeleton() {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="h-[680px] animate-pulse rounded-xl bg-white shadow-[0_16px_40px_rgba(15,23,42,0.06)]" />
-      <div className="h-[520px] animate-pulse rounded-xl bg-[#f1f4fb]" />
+      <div className="h-[680px] animate-pulse rounded-md bg-white shadow-[0_16px_40px_rgba(15,23,42,0.06)]" />
+      <div className="h-[520px] animate-pulse rounded-md bg-[#f1f4fb]" />
     </div>
   )
 }
 
-function ConversationDetail({ conversationId, summary, onBack }) {
+function ConversationDetail({ conversationId, summary, orgId, onBack }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('overview')
   const [copied, setCopied] = useState(false)
+  const [audioUrl, setAudioUrl] = useState('')
+  const [audioError, setAudioError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    let createdUrl = ''
+    setAudioUrl('')
+    setAudioError('')
+
+    if (data?.has_audio) {
+      getConversationAudio(conversationId)
+        .then((blob) => {
+          if (cancelled) return
+          createdUrl = URL.createObjectURL(blob)
+          setAudioUrl(createdUrl)
+        })
+        .catch((err) => {
+          if (!cancelled) setAudioError(err.message || 'Audio unavailable')
+        })
+    }
+
+    return () => {
+      cancelled = true
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
+    }
+  }, [conversationId, data?.has_audio])
 
   useEffect(() => {
     let cancelled = false
@@ -395,7 +710,7 @@ function ConversationDetail({ conversationId, summary, onBack }) {
       setError('')
 
       try {
-        const response = await getConversation(conversationId)
+        const response = await getConversation(conversationId, { orgId })
         if (!cancelled) setData(response)
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load conversation details.')
@@ -409,7 +724,7 @@ function ConversationDetail({ conversationId, summary, onBack }) {
     return () => {
       cancelled = true
     }
-  }, [conversationId])
+  }, [conversationId, orgId])
 
   const enrichment = data?._enrichment || {}
   const overview = enrichment.call_overview || {}
@@ -492,63 +807,111 @@ function ConversationDetail({ conversationId, summary, onBack }) {
           {error}
         </Surface>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
           <Surface className="overflow-hidden">
-            <div className="bg-[linear-gradient(135deg,#ffffff_0%,#f7f8fc_58%,#edf1ff_100%)] px-8 py-8">
-              <p className="max-w-3xl text-base leading-8 text-slate-700">{summaryText}</p>
+            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f7f8fc_58%,#edf1ff_100%)] px-8 py-8">
+              <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl" />
+              <div className="pointer-events-none absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-violet-200/20 blur-3xl" />
 
-              <div className="mt-6 rounded-xl bg-white/80 px-6 py-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Call recording overview</p>
-                    <p className="mt-1 text-xs text-slate-500">Playback styling is preserved here, but this workspace still does not expose the recording stream.</p>
+              <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-start">
+                <div>
+                  <p className="max-w-2xl text-[15px] leading-7 text-slate-700">{summaryText}</p>
+                </div>
+
+                <div className="flex justify-center lg:justify-end">
+                  <div className="flex flex-col items-center gap-2 rounded-lg bg-white/80 px-6 py-4 ring-1 ring-slate-100">
+                    <ScoreRing score={scores.overall_call_score ?? summary?.overall_call_score} />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Overall</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                    Audio unavailable
-                  </span>
                 </div>
+              </div>
 
-                <div className="mt-5 flex h-20 items-end gap-[3px]">
-                  {waveformBars.map((height, index) => (
-                    <div
-                      key={`${conversationId}-${index}`}
-                      className="flex-1 rounded-full bg-gradient-to-t from-indigo-500 via-sky-500 to-violet-300"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
-                </div>
+              <div className="relative mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <HeroStat icon={Clock} label="Duration" value={formatDuration(durationValue)} accent="indigo" />
+                <HeroStat icon={Smile} label="Mood" value={MOOD_META[moodValue]?.label || moodValue || '-'} accent="emerald" />
+                <HeroStat icon={Languages} label="Language" value={language ? String(language).toUpperCase() : '-'} accent="sky" />
+                <HeroStat
+                  icon={phone.direction === 'outbound' ? ArrowUp : phone.direction === 'inbound' ? ArrowDown : Phone}
+                  label="Caller"
+                  value={phone.external_number || data?.user_id || '-'}
+                  accent="violet"
+                />
+              </div>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {language && <Pill tone="blue"><Languages size={11} /> {String(language).toUpperCase()}</Pill>}
-                  {durationValue != null && <Pill tone="slate"><Clock size={11} /> {formatDuration(durationValue)}</Pill>}
-                  {processedAt && <Pill tone="slate">{formatDateTime(processedAt)}</Pill>}
-                  {phone.external_number && (
-                    <Pill tone="slate">
-                      {phone.direction === 'outbound' ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-                      {phone.external_number}
-                    </Pill>
+              <div className="relative mt-6 rounded-lg bg-white/85 p-5 ring-1 ring-slate-100 backdrop-blur">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
+                      <PhoneCall size={16} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Call recording</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {data?.has_audio
+                          ? (audioUrl ? 'Press play to listen' : audioError || 'Loading audio…')
+                          : 'No audio captured for this conversation.'}
+                      </p>
+                    </div>
+                  </div>
+                  {!data?.has_audio && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                      Audio unavailable
+                    </span>
                   )}
                 </div>
+
+                {data?.has_audio ? (
+                  audioUrl ? (
+                    <PlayingAudio src={audioUrl} bars={waveformBars} />
+                  ) : audioError ? (
+                    <p className="mt-5 text-xs text-rose-600">{audioError}</p>
+                  ) : (
+                    <div className="mt-5 flex h-20 items-end gap-[3px]">
+                      {waveformBars.map((height, index) => (
+                        <div
+                          key={`${conversationId}-${index}`}
+                          className="flex-1 animate-pulse rounded-full bg-gradient-to-t from-indigo-200 via-sky-200 to-violet-100"
+                          style={{ height: `${height}%` }}
+                        />
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-5 flex h-20 items-end gap-[3px]">
+                    {waveformBars.map((height, index) => (
+                      <div
+                        key={`${conversationId}-${index}`}
+                        className="flex-1 rounded-full bg-gradient-to-t from-slate-200 via-slate-200 to-slate-100"
+                        style={{ height: `${height}%` }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="px-8">
               <div className="flex flex-wrap gap-5 border-b border-slate-100">
                 {[
-                  { id: 'overview', label: 'Overview' },
-                  { id: 'transcript', label: `Transcript (${transcript.length})` },
+                  { id: 'overview', label: 'Overview', icon: TrendingUp },
+                  { id: 'transcript', label: `Transcript (${transcript.length})`, icon: MessageSquare },
+                  { id: 'metadata', label: 'Call metadata', icon: Info },
+                  { id: 'profile', label: 'User profile', icon: UserCheck },
+                  { id: 'postcall', label: 'Post-call', icon: HeartPulse },
+                  { id: 'actions', label: `Action items (${actions.action_items?.length || 0})`, icon: ListChecks },
                 ].map((tab) => {
                   const active = tab.id === activeTab
+                  const Icon = tab.icon
                   return (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`-mb-px border-b-2 px-1 py-4 text-xs font-semibold uppercase tracking-[0.16em] transition ${
-                        active
+                      className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-1 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${active
                           ? 'border-indigo-500 text-indigo-600'
                           : 'border-transparent text-slate-400 hover:text-slate-700'
-                      }`}
+                        }`}
                     >
+                      {Icon && <Icon size={11} />}
                       {tab.label}
                     </button>
                   )
@@ -557,7 +920,7 @@ function ConversationDetail({ conversationId, summary, onBack }) {
             </div>
 
             <div className="space-y-10 px-8 py-8">
-              {activeTab === 'overview' ? (
+              {activeTab === 'overview' && (
                 <>
                   {sentiment.length > 0 && (
                     <ArticleSection title="Sentiment over time" icon={TrendingUp}>
@@ -580,7 +943,7 @@ function ConversationDetail({ conversationId, summary, onBack }) {
                   {(Object.keys(scores).length > 0 || Object.keys(performance).length > 0) && (
                     <ArticleSection title="Scorecard & agent performance" icon={Shield}>
                       <div className="grid gap-6 lg:grid-cols-2">
-                        <div className="rounded-xl bg-slate-50 px-5 py-5">
+                        <div className="rounded-md bg-slate-50 px-5 py-5">
                           <p className="text-sm font-semibold text-slate-900">Scorecard</p>
                           <div className="mt-5 space-y-4">
                             <GaugeRow label="Overall score" score={scores.overall_call_score ?? summary?.overall_call_score} />
@@ -592,7 +955,7 @@ function ConversationDetail({ conversationId, summary, onBack }) {
                           )}
                         </div>
 
-                        <div className="rounded-xl bg-slate-50 px-5 py-5">
+                        <div className="rounded-md bg-slate-50 px-5 py-5">
                           <p className="text-sm font-semibold text-slate-900">Agent performance</p>
                           <div className="mt-5 grid gap-5 sm:grid-cols-2">
                             <GaugeRow label="Prompt compliance" score={performance.prompt_compliance_score} />
@@ -614,145 +977,155 @@ function ConversationDetail({ conversationId, summary, onBack }) {
 
                   {Object.keys(dynamics).length > 0 && (
                     <ArticleSection title="Conversation dynamics" icon={Activity}>
-                      <dl className="grid gap-x-10 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
-                        <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Total turns</dt>
-                          <dd className="mt-2 text-sm font-semibold text-slate-900">{dynamics.total_turns ?? '-'}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Interrupted turns</dt>
-                          <dd className="mt-2 text-sm font-semibold text-slate-900">{dynamics.interrupted_turns ?? 0}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avg LLM TTFB</dt>
-                          <dd className="mt-2 text-sm font-semibold text-slate-900">{dynamics.avg_llm_ttfb_ms == null ? '-' : `${Math.round(dynamics.avg_llm_ttfb_ms)} ms`}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avg TTS TTFB</dt>
-                          <dd className="mt-2 text-sm font-semibold text-slate-900">{dynamics.avg_tts_ttfb_ms == null ? '-' : `${Math.round(dynamics.avg_tts_ttfb_ms)} ms`}</dd>
-                        </div>
-                        <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avg ASR latency</dt>
-                          <dd className="mt-2 text-sm font-semibold text-slate-900">{dynamics.avg_asr_latency_ms == null ? '-' : `${Math.round(dynamics.avg_asr_latency_ms)} ms`}</dd>
-                        </div>
-                      </dl>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                        {[
+                          { label: 'Total turns', value: dynamics.total_turns ?? '-', accent: 'indigo', icon: MessageSquare },
+                          { label: 'Interrupted', value: dynamics.interrupted_turns ?? 0, accent: 'amber', icon: Activity },
+                          { label: 'Avg LLM TTFB', value: dynamics.avg_llm_ttfb_ms == null ? '-' : `${Math.round(dynamics.avg_llm_ttfb_ms)} ms`, accent: 'violet', icon: Gauge },
+                          { label: 'Avg TTS TTFB', value: dynamics.avg_tts_ttfb_ms == null ? '-' : `${Math.round(dynamics.avg_tts_ttfb_ms)} ms`, accent: 'sky', icon: Gauge },
+                          { label: 'Avg ASR latency', value: dynamics.avg_asr_latency_ms == null ? '-' : `${Math.round(dynamics.avg_asr_latency_ms)} ms`, accent: 'emerald', icon: Gauge },
+                        ].map((tile) => (
+                          <HeroStat key={tile.label} {...tile} />
+                        ))}
+                      </div>
                     </ArticleSection>
                   )}
                 </>
-              ) : (
+              )}
+
+              {activeTab === 'transcript' && (
                 <ArticleSection title={`Transcript (${transcript.length} turns)`} icon={MessageSquare}>
                   {transcript.length === 0 ? (
                     <p className="text-sm text-slate-500">No transcript was attached to this conversation.</p>
                   ) : (
-                    <div className="space-y-5">
-                      {transcript.map((turn, index) => (
-                        <div key={`${turn.role || 'turn'}-${index}`} className="pl-5">
-                          <div className={`relative before:absolute before:left-[-20px] before:top-1 before:h-full before:w-[2px] before:rounded-full ${
-                            turn.role === 'agent'
-                              ? 'before:bg-indigo-200'
-                              : 'before:bg-slate-200'
-                          }`}
-                          >
-                            <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                              <span>{turn.role || 'Unknown'}</span>
-                              {turn.time_in_call_secs != null && <span>{formatDuration(turn.time_in_call_secs)}</span>}
-                              {turn.interrupted && <span className="text-amber-700">Interrupted</span>}
-                            </div>
-                            <p className="max-w-3xl text-sm leading-7 text-slate-700">
-                              {turn.message || <span className="italic text-slate-400">(no message captured)</span>}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-4 rounded-lg bg-gradient-to-b from-slate-50/80 to-white p-5 ring-1 ring-slate-100">
+                      {transcript
+                        .filter((turn) => turn.message && String(turn.message).trim())
+                        .map((turn, index) => (
+                          <TranscriptBubble key={`${turn.role || 'turn'}-${index}`} turn={turn} />
+                        ))}
                     </div>
                   )}
                 </ArticleSection>
               )}
-            </div>
-          </Surface>
 
-          <Surface className="p-6" tint="soft">
-            <div className="space-y-8">
-              <SideSection title="Metadata" icon={Info}>
-                <div className="space-y-3">
-                  <MetaRow label="Processed" value={formatDateTime(processedAt)} />
-                  <MetaRow label="Call date" value={formatDate(callDate)} />
-                  <MetaRow label="Duration" value={formatDuration(durationValue)} />
-                  <MetaRow label="Direction" value={phone.direction || '-'} />
-                  <MetaRow label="External number" value={phone.external_number || '-'} />
-                  <MetaRow label="Agent number" value={phone.agent_number || phone.to || '-'} />
-                  <MetaRow label="Language" value={language || '-'} />
-                  <MetaRow label="Status" value={STATUS_META[data?.status || summary?.status]?.label || data?.status || summary?.status || '-'} />
-                </div>
-              </SideSection>
-
-              <SideSection title="User profile" icon={UserCheck}>
-                <div className="flex flex-wrap gap-2">
-                  <MetaPill meta={MOOD_META[moodValue]} />
-                  {profiling.skepticism_level && <Pill tone="slate">Skepticism: {profiling.skepticism_level}</Pill>}
-                  <SignalBadge label="Confused" value={profiling.confusion_detected} bad />
-                  <SignalBadge label="Aggressive" value={profiling.aggression_detected} bad />
-                  <SignalBadge label="Escalation requested" value={profiling.escalation_requested} bad />
-                </div>
-                {profiling.objections_raised?.length > 0 && (
-                  <ul className="mt-4 space-y-2 text-sm text-slate-600">
-                    {profiling.objections_raised.map((item, index) => (
-                      <li key={`${item}-${index}`} className="list-inside list-disc">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </SideSection>
-
-              <SideSection title="Post-call actions" icon={HeartPulse}>
-                <div className="flex flex-wrap gap-2">
-                  <SignalBadge label="Callback requested" value={actions.callback_requested} good />
-                  <SignalBadge label="Transfer attempted" value={actions.transfer_attempted} good />
-                  <SignalBadge label="Transfer succeeded" value={actions.transfer_succeeded} good />
-                </div>
-                {actions.callback_time_utc && (
-                  <p className="mt-4 text-xs text-slate-500">
-                    Callback time: <span className="font-semibold text-slate-700">{formatDateTime(actions.callback_time_utc)}</span>
-                  </p>
-                )}
-                {actions.unresolved_issues?.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Unresolved issues</p>
-                    <ul className="mt-2 space-y-2 text-sm text-slate-600">
-                      {actions.unresolved_issues.map((item, index) => (
-                        <li key={`${item}-${index}`} className="list-inside list-disc">
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
+              {activeTab === 'metadata' && (
+                <ArticleSection title="Call metadata" icon={Info}>
+                  <div className="grid gap-4 rounded-lg bg-gradient-to-b from-slate-50/40 to-white p-6 ring-1 ring-slate-100 sm:grid-cols-2">
+                    <IconMetaRow icon={Calendar} label="Call date" value={formatDate(callDate)} />
+                    <IconMetaRow icon={Clock} label="Processed" value={formatDateTime(processedAt)} />
+                    <IconMetaRow icon={Activity} label="Duration" value={formatDuration(durationValue)} />
+                    <IconMetaRow
+                      icon={phone.direction === 'outbound' ? ArrowUp : phone.direction === 'inbound' ? ArrowDown : Phone}
+                      label="Direction"
+                      value={phone.direction ? phone.direction.charAt(0).toUpperCase() + phone.direction.slice(1) : '-'}
+                    />
+                    <IconMetaRow icon={Phone} label="External number" value={phone.external_number} />
+                    <IconMetaRow icon={Bot} label="Agent number" value={phone.agent_number || phone.to} />
+                    <IconMetaRow icon={Languages} label="Language" value={language ? String(language).toUpperCase() : null} />
                   </div>
-                )}
-                {actions.action_items?.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Action items</p>
-                    <div className="mt-3 space-y-3">
+                </ArticleSection>
+              )}
+
+              {activeTab === 'profile' && (
+                <ArticleSection title="User profile" icon={UserCheck}>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between rounded-lg bg-gradient-to-br from-violet-50 via-indigo-50 to-sky-50 px-6 py-5 ring-1 ring-violet-100">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Dominant mood</p>
+                        <p className="mt-1 text-2xl font-bold text-slate-900">
+                          {MOOD_META[moodValue]?.label || moodValue || 'Unknown'}
+                        </p>
+                      </div>
+                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
+                        <Smile size={26} className="text-violet-500" />
+                      </span>
+                    </div>
+
+                    {profiling.skepticism_level && (
+                      <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
+                        <span className="text-xs font-semibold text-slate-500">Skepticism</span>
+                        <span className="text-sm font-bold text-slate-800">{profiling.skepticism_level}</span>
+                      </div>
+                    )}
+
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <SignalCheck label="Not confused" value={profiling.confusion_detected} bad />
+                      <SignalCheck label="Calm tone" value={profiling.aggression_detected} bad />
+                      <SignalCheck label="No escalation" value={profiling.escalation_requested} bad />
+                    </div>
+
+                    {profiling.objections_raised?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Objections raised</p>
+                        <ul className="mt-2 space-y-1.5">
+                          {profiling.objections_raised.map((item, index) => (
+                            <li key={`${item}-${index}`} className="rounded-md bg-rose-50/70 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-100">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </ArticleSection>
+              )}
+
+              {activeTab === 'postcall' && (
+                <ArticleSection title="Post-call actions" icon={HeartPulse}>
+                  <div className="space-y-4">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <SignalCheck label="Callback requested" value={actions.callback_requested} good />
+                      <SignalCheck label="Transfer attempted" value={actions.transfer_attempted} good />
+                      <SignalCheck label="Transfer succeeded" value={actions.transfer_succeeded} good />
+                    </div>
+
+                    {actions.callback_time_utc && (
+                      <div className="rounded-lg bg-gradient-to-br from-amber-50 to-white px-5 py-4 ring-1 ring-amber-100">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-700">Callback Requested At</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900">{formatDateTime(actions.callback_time_utc)}</p>
+                      </div>
+                    )}
+
+                    {actions.unresolved_issues?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Unresolved issues</p>
+                        <ul className="mt-2 space-y-1.5">
+                          {actions.unresolved_issues.map((item, index) => (
+                            <li key={`${item}-${index}`} className="rounded-md bg-rose-50/70 px-3 py-2 text-xs text-rose-700 ring-1 ring-rose-100">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </ArticleSection>
+              )}
+
+              {activeTab === 'actions' && (
+                <ArticleSection title={`Action items (${actions.action_items?.length || 0})`} icon={ListChecks}>
+                  {!actions.action_items?.length ? (
+                    <p className="text-sm text-slate-500">No action items captured for this conversation.</p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {actions.action_items.map((item, index) => {
                         const task = typeof item === 'string' ? item : item.task
                         const owner = typeof item === 'string' ? '' : item.owner
                         const due = typeof item === 'string' ? '' : item.due
-
                         return (
-                          <div key={`${task || 'task'}-${index}`}>
-                            <p className="text-sm font-medium text-slate-700">{task || 'Action item'}</p>
-                            {(owner || due) && (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {owner && <Pill tone="blue">{owner}</Pill>}
-                                {due && <Pill tone="slate">{String(due).replace(/_/g, ' ')}</Pill>}
-                              </div>
-                            )}
-                          </div>
+                          <ActionItemCard
+                            key={`${task || 'task'}-${index}`}
+                            task={task}
+                            owner={owner}
+                            due={due}
+                          />
                         )
                       })}
                     </div>
-                  </div>
-                )}
-              </SideSection>
+                  )}
+                </ArticleSection>
+              )}
             </div>
           </Surface>
         </div>
@@ -777,6 +1150,27 @@ export default function ConversationsPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
+  const currentUser = useMemo(() => getCurrentUser(), [])
+  const isSuperAdmin = currentUser?.role === 'super_admin'
+  const [orgFilter, setOrgFilter] = useState('')
+  const [orgs, setOrgs] = useState([])
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    let cancelled = false
+    listOrganizations({ limit: 100 })
+      .then((res) => {
+        if (cancelled) return
+        const list = res.items ?? []
+        setOrgs(list)
+        setOrgFilter((current) => current || list[0]?.org_id || '')
+      })
+      .catch(() => { if (!cancelled) setOrgs([]) })
+    return () => { cancelled = true }
+  }, [isSuperAdmin])
+
+  const effectiveOrgId = isSuperAdmin ? (orgFilter || undefined) : (currentUser?.org_id || undefined)
+
   const selectedConversationId = searchParams.get('conversation')
 
   const queryArgs = useMemo(() => ({
@@ -784,16 +1178,23 @@ export default function ConversationsPage() {
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
     search: searchTerm || undefined,
+    orgId: effectiveOrgId,
     limit: 20,
   }), [
-    fromDate,
     fromDate,
     outcomeFilter,
     searchTerm,
     toDate,
+    effectiveOrgId,
   ])
 
   const load = useCallback(async () => {
+    if (isSuperAdmin && !effectiveOrgId) {
+      setItems([])
+      setNextCursor(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -807,7 +1208,7 @@ export default function ConversationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [queryArgs])
+  }, [queryArgs, isSuperAdmin, effectiveOrgId])
 
   async function loadMore() {
     if (!nextCursor || loadingMore) return
@@ -894,6 +1295,7 @@ export default function ConversationsPage() {
             key={selectedSummary.conversation_id}
             conversationId={selectedSummary.conversation_id}
             summary={selectedSummary}
+            orgId={selectedSummary.org_id || effectiveOrgId}
             onBack={clearConversation}
           />
         ) : (
@@ -929,17 +1331,24 @@ export default function ConversationsPage() {
                 </form>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`flex h-11 w-11 items-center justify-center rounded-md border shadow-sm transition ${
-                    showFilters || outcomeFilter || fromDate || toDate
+                  className={`flex h-11 w-11 items-center justify-center rounded-md border shadow-sm transition ${showFilters || outcomeFilter || fromDate || toDate
                       ? 'border-indigo-500 bg-indigo-50 text-indigo-600'
                       : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   <Filter size={16} />
                 </button>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {isSuperAdmin && (
+                  <OrgPicker
+                    value={orgFilter}
+                    onChange={setOrgFilter}
+                    orgs={orgs}
+                    loading={orgs.length === 0}
+                  />
+                )}
                 <Link
                   to="/app/analytics"
                   className="inline-flex h-11 items-center gap-2 rounded-md bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm border border-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
@@ -1045,10 +1454,9 @@ export default function ConversationsPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50/80 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                     <tr>
-                      <th className="px-6 py-3 sm:px-8">Agent</th>
-                      <th className="px-6 py-3">Conversation ID</th>
-                      <th className="px-6 py-3">Duration</th>
+                      <th className="px-6 py-3 sm:px-8">Candidate</th>
                       <th className="px-6 py-3">Processed</th>
+                      <th className="px-6 py-3">Duration</th>
                       <th className="px-6 py-3">Score</th>
                       <th className="px-6 py-3">Outcome</th>
                       <th className="px-6 py-3">Mood</th>
@@ -1063,7 +1471,6 @@ export default function ConversationsPage() {
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
-                          <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-6 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-6 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5 sm:px-8"><div className="ml-auto h-9 w-24 animate-pulse rounded-full bg-slate-100" /></td>
@@ -1071,7 +1478,7 @@ export default function ConversationsPage() {
                       ))
                     ) : items.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-20 text-center sm:px-8">
+                        <td colSpan={7} className="px-6 py-20 text-center sm:px-8">
                           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100">
                             <PhoneCall size={20} className="text-slate-400" />
                           </div>
@@ -1091,30 +1498,32 @@ export default function ConversationsPage() {
                           >
                             <td className="px-6 py-5 align-top sm:px-8">
                               <div className="max-w-xs">
-                                <p className="truncate text-sm font-medium text-slate-800">
-                                  {item.agent_name || item.organization_name || 'Unknown agent'}
+                                <p className="truncate text-sm font-semibold text-slate-800">
+                                  {item.contact_name || 'Unknown candidate'}
                                 </p>
+                                {item.contact_id && (
+                                  <div className="mt-0.5 flex items-center gap-1.5">
+                                    <span className="truncate font-mono text-[11px] text-slate-400" title={item.contact_id}>
+                                      {item.contact_id}
+                                    </span>
+                                    <button
+                                      onClick={(event) => handleCopyId(event, item.contact_id)}
+                                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                      title="Copy contact ID"
+                                    >
+                                      {copiedId === item.contact_id
+                                        ? <Check size={12} className="text-emerald-600" />
+                                        : <Copy size={12} />}
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            </td>
-                            <td className="px-6 py-5 align-top">
-                              <div className="flex items-center gap-2">
-                                <span className="max-w-[170px] truncate font-mono text-[11px] text-slate-500">
-                                  {item.conversation_id}
-                                </span>
-                                <button
-                                  onClick={(event) => handleCopyId(event, item.conversation_id)}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition hover:text-slate-700"
-                                  title="Copy conversation ID"
-                                >
-                                  {copiedId === item.conversation_id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                                </button>
-                              </div>
-                            </td>
-                            <td className="px-6 py-5 align-top font-mono text-xs text-slate-600">
-                              {formatDuration(item.call_duration_secs)}
                             </td>
                             <td className="px-6 py-5 align-top text-xs text-slate-500">
                               {formatDateTime(item.processed_at)}
+                            </td>
+                            <td className="px-6 py-5 align-top font-mono text-xs text-slate-600">
+                              {formatDuration(item.call_duration_secs)}
                             </td>
                             <td className="px-6 py-5 align-top">
                               <span className={`inline-flex items-center gap-1.5 font-semibold ${scoreTextClass(score)}`}>

@@ -1508,3 +1508,12 @@
     text-wrap: balance;
   }
 }
+/* Audio playback equalizer animation */
+@keyframes audioBar {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+.audio-bar {
+  transform-origin: bottom;
+  animation: audioBar 900ms ease-in-out infinite;
+}

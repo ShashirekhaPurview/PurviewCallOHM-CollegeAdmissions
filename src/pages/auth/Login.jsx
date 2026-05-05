@@ -107,7 +107,7 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/app/dashboard')
+      navigate('/app/analytics')
     } catch (err) {
       setError(err.message || 'Invalid email or password. Please try again.')
     } finally {

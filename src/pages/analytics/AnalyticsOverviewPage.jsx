@@ -110,6 +110,10 @@ function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
+function endOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+}
+
 function getRangeFilters(range, customRange = {}) {
   const meta = getRangeMeta(range)
   const today = startOfDay(new Date())
@@ -130,8 +134,8 @@ function getRangeFilters(range, customRange = {}) {
 
     return {
       meta: { ...meta, title: `${formatDate(from)} - ${formatDate(to)}` },
-      fromDate: toDateInputValue(from),
-      toDate: toDateInputValue(to),
+      fromDate: from.toISOString(),
+      toDate: endOfDay(to).toISOString(),
     }
   }
 
@@ -141,8 +145,8 @@ function getRangeFilters(range, customRange = {}) {
 
   return {
     meta,
-    fromDate: toDateInputValue(from),
-    toDate: toDateInputValue(to),
+    fromDate: from.toISOString(),
+    toDate: endOfDay(to).toISOString(),
   }
 }
 
