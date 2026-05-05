@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, UserCog, Target, Phone, BarChart3, CalendarCheck,
-  LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft,
+  LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft, CircleAlert, RefreshCw,
 } from 'lucide-react'
 import { logout, getCurrentUser } from '../api/auth/authService'
 
@@ -76,10 +76,85 @@ function NavItem({ icon: Icon, label, href, collapsed, onClick }) {
   )
 }
 
-function Sidebar({ collapsed, setCollapsed, onClose, mobile, role }) {
+function LogoutConfirmModal({ open, onClose, onConfirm, busy }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-[70] bg-slate-950/35 backdrop-blur-sm"
+            onClick={() => !busy && onClose()}
+          />
+          <div className="fixed inset-0 z-[71] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.96 }}
+              transition={{ duration: 0.18 }}
+              className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-6 py-5">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                    <CircleAlert size={20} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">Are you sure you want to end this session?</h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={busy}
+                  className="shrink-0 rounded-md border border-gray-200 bg-gray-50 p-1.5 text-gray-600 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Close logout dialog"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="px-6 py-5">
+                <div className="flex gap-2.5">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={busy}
+                    className="flex-1 rounded-md border border-gray-300 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <motion.button
+                    type="button"
+                    onClick={onConfirm}
+                    disabled={busy}
+                    whileHover={busy ? undefined : { scale: 1.01 }}
+                    whileTap={busy ? undefined : { scale: 0.98 }}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ background: '#DC2626' }}
+                  >
+                    {busy ? <RefreshCw size={14} className="animate-spin" /> : <LogOut size={14} />}
+                    {busy ? 'Logging out…' : 'Log out'}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+}
+
+function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogout }) {
   const navItems = getNav(role)
   const me = getCurrentUser()
   const roleLabel = role === 'super_admin' ? 'Super Admin' : role === 'org_admin' ? 'Org Admin' : 'Org User'
+  const isCollapsed = collapsed && !mobile
 
   return (
     <aside
@@ -144,17 +219,39 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role }) {
       <nav className="flex-1 overflow-y-auto py-4">
         <div className="flex flex-col gap-0.5">
           {navItems.map(item => (
-            <NavItem key={item.href} {...item} collapsed={collapsed && !mobile} onClick={mobile ? onClose : undefined} />
+            <NavItem key={item.href} {...item} collapsed={isCollapsed} onClick={mobile ? onClose : undefined} />
           ))}
         </div>
       </nav>
+
+      <div className="shrink-0 border-t border-gray-200/70 p-3">
+        {!isCollapsed && (
+          <div className="mb-3 rounded-2xl border border-gray-200/70 bg-white/70 px-3 py-2.5">
+            <p className="truncate text-sm font-semibold text-gray-900">
+              {me?.email?.split('@')[0] || 'User'}
+            </p>
+            <p className="truncate text-xs text-gray-500">{roleLabel}</p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onRequestLogout}
+          title={isCollapsed ? 'Log out' : undefined}
+          className={`flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 ${
+            isCollapsed ? 'justify-center' : 'gap-2.5'
+          }`}
+        >
+          <LogOut size={16} />
+          {!isCollapsed && <span>Log out</span>}
+        </button>
+      </div>
 
     </aside>
   )
 }
 
-function TopBar({ onMenuClick, role }) {
-  const navigate = useNavigate()
+function TopBar({ onMenuClick, role, onRequestLogout }) {
   const location = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
   const me = getCurrentUser()
@@ -163,11 +260,6 @@ function TopBar({ onMenuClick, role }) {
   const current = allNav.find(
     (item) => location.pathname === item.href || location.pathname.startsWith(item.href + '/')
   )
-
-  async function handleLogout() {
-    await logout().catch(() => {})
-    navigate('/login', { replace: true })
-  }
 
   return (
     <header
@@ -221,7 +313,7 @@ function TopBar({ onMenuClick, role }) {
                 </div>
                 <div className="p-1">
                   <button
-                    onClick={() => { setProfileOpen(false); handleLogout(); }}
+                    onClick={() => { setProfileOpen(false); onRequestLogout(); }}
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <LogOut size={16} />
@@ -238,14 +330,35 @@ function TopBar({ onMenuClick, role }) {
 }
 
 export default function AppLayout({ children, role }) {
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  function openLogoutConfirm() {
+    if (!loggingOut) setLogoutConfirmOpen(true)
+  }
+
+  function closeLogoutConfirm() {
+    if (!loggingOut) setLogoutConfirmOpen(false)
+  }
+
+  async function handleConfirmLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    await logout().catch(() => {})
+    setLogoutConfirmOpen(false)
+    setMobileOpen(false)
+    setLoggingOut(false)
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: C.base }}>
       {/* Desktop sidebar */}
       <div className="hidden h-full shrink-0 flex-col lg:flex" style={{ transition: 'width 0.25s', width: collapsed ? 72 : 248 }}>
-        <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} role={role} />
+        <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} role={role} onRequestLogout={openLogoutConfirm} />
       </div>
 
       {/* Mobile drawer */}
@@ -272,6 +385,7 @@ export default function AppLayout({ children, role }) {
                 mobile
                 onClose={() => setMobileOpen(false)}
                 role={role}
+                onRequestLogout={openLogoutConfirm}
               />
             </motion.div>
           </>
@@ -279,9 +393,16 @@ export default function AppLayout({ children, role }) {
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <TopBar onMenuClick={() => setMobileOpen(true)} role={role} />
+        <TopBar onMenuClick={() => setMobileOpen(true)} role={role} onRequestLogout={openLogoutConfirm} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onClose={closeLogoutConfirm}
+        onConfirm={handleConfirmLogout}
+        busy={loggingOut}
+      />
     </div>
   )
 }
