@@ -105,8 +105,8 @@ export default function PricingPage() {
           <Link to="/book-demo" className="btn btn-primary btn-arrow">
             Talk to us <ArrowRight size={15} />
           </Link>
-          <a href="mailto:hello@callohm.com" className="btn btn-ghost">
-            hello@callohm.com
+          <a href="mailto:support@callohm.com" className="btn btn-ghost">
+            support@callohm.com
           </a>
         </motion.div>
       </section>
