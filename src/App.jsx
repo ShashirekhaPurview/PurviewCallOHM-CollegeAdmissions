@@ -15,6 +15,7 @@ import ConversationsPage from './pages/analytics/AnalyticsPage'
 import AnalyticsPage from './pages/analytics/AnalyticsOverviewPage'
 import { getSession } from './api/auth/authService'
 import OrganizationDetailsPage from './pages/superadmin/OrganizationDetailsPage'
+import { RouteScrollRestoration } from './utils/homeNavigation'
 
 function AppRoutes() {
   const session = getSession()
@@ -52,6 +53,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
+      <RouteScrollRestoration />
       <Routes>
         <Route path="/"          element={<Landing />} />
         <Route path="/login"    element={<Login />} />

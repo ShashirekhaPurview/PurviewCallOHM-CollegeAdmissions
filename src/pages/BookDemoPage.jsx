@@ -5,6 +5,8 @@ import {
   ArrowRight, Check, Loader2, Moon, Sun,
   Clock, Phone, ShieldCheck,
 } from 'lucide-react'
+import { useNavigateHomeTop } from '../utils/homeNavigation'
+import { createBookDemoRequest } from '../api/bookDemo/bookDemoService'
 
 /* ── Theme ── */
 function useTheme() {
@@ -83,19 +85,41 @@ function applyBlur(e) {
 
 export default function BookDemoPage() {
   const [theme, toggleTheme] = useTheme()
+  const goHomeTop = useNavigateHomeTop()
   const [form, setForm] = useState(INITIAL_FORM)
   const [submitState, setSubmitState] = useState('idle')
+  const [submitError, setSubmitError] = useState('')
 
-  const set = field => e => setForm(p => ({ ...p, [field]: e.target.value }))
+  const set = field => e => {
+    setForm(p => ({ ...p, [field]: e.target.value }))
+    if (submitState !== 'idle') setSubmitState('idle')
+    if (submitError) setSubmitError('')
+  }
 
   const handleSubmit = async e => {
     e.preventDefault()
     setSubmitState('submitting')
+    setSubmitError('')
+
+    const payload = {
+      full_name: form.fullName.trim(),
+      email: form.workEmail.trim(),
+      institution: form.organization.trim(),
+      body: form.message.trim(),
+    }
+
+    if (!payload.full_name || !payload.email || !payload.institution || !payload.body) {
+      setSubmitError('Please fill in all fields.')
+      setSubmitState('error')
+      return
+    }
+
     try {
-      await new Promise(r => setTimeout(r, 1200))
+      await createBookDemoRequest(payload)
       setSubmitState('success')
       setForm(INITIAL_FORM)
-    } catch {
+    } catch (error) {
+      setSubmitError(error.message || 'Something went wrong. Please try again.')
       setSubmitState('error')
     }
   }
@@ -109,12 +133,12 @@ export default function BookDemoPage() {
     >
       {/* Nav */}
       <nav className="hi-nav">
-        <Link to="/" className="hi-nav-brand" style={{ textDecoration: 'none' }}>
+        <Link to="/" onClick={goHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
           <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
           <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
         </Link>
         <div className="hi-nav-links">
-          <Link to="/" className="hi-nav-link">Home</Link>
+          <Link to="/" onClick={goHomeTop} className="hi-nav-link">Home</Link>
           <Link to="/workflow" className="hi-nav-link">Workflow</Link>
           <Link to="/customers" className="hi-nav-link">Customers</Link>
           <Link to="/pricing" className="hi-nav-link">Pricing</Link>
@@ -247,9 +271,10 @@ export default function BookDemoPage() {
                   />
                 </Field>
 
-                <Field label="How can we help? (optional)">
+                <Field label="How can we help?">
                   <textarea
                     rows={3}
+                    required
                     placeholder="Current challenges, expected call volume…"
                     value={form.message} onChange={set('message')}
                     style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55 }}
@@ -284,7 +309,7 @@ export default function BookDemoPage() {
                       fontSize: 14, fontWeight: 500,
                     }}
                   >
-                    Something went wrong. Please try again.
+                    {submitError || 'Something went wrong. Please try again.'}
                   </motion.div>
                 )}
 

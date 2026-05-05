@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Moon, Sun } from 'lucide-react'
 import WorkflowAnimation from './landing/WorkflowSection'
+import { useNavigateHomeTop } from '../utils/homeNavigation'
 
 function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -21,19 +22,20 @@ function useTheme() {
 
 export default function WorkflowPage() {
   const [theme, toggleTheme] = useTheme()
+  const goHomeTop = useNavigateHomeTop()
 
   return (
     <div className="landing-v2" data-accent="clay" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
       {/* Nav - same hi-nav class as landing, fully fixed */}
       <nav className="hi-nav">
-        <Link to="/" className="hi-nav-brand" style={{ textDecoration: 'none' }}>
+        <Link to="/" onClick={goHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
           <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
           <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
         </Link>
 
         <div className="hi-nav-links">
-          <Link to="/" className="hi-nav-link">Home</Link>
+          <Link to="/" onClick={goHomeTop} className="hi-nav-link">Home</Link>
           <span className="hi-nav-link active">Workflow</span>
           <Link to="/customers" className="hi-nav-link">Customers</Link>
           <Link to="/pricing" className="hi-nav-link">Pricing</Link>

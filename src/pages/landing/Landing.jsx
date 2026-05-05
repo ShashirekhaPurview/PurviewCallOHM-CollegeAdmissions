@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Moon, Sun } from 'lucide-react'
 import Hero from './Hero'
+import { useNavigateHomeTop } from '../../utils/homeNavigation'
 
 /* ─── Theme ─── */
 function useTheme() {
@@ -22,15 +23,15 @@ function useTheme() {
 }
 
 /* ─── Navbar ─── */
-function Navbar({ theme, onToggleTheme }) {
+function Navbar({ theme, onToggleTheme, onHomeTop }) {
   return (
     <nav className="hi-nav">
-      <Link to="/" className="hi-nav-brand" style={{ textDecoration: 'none' }}>
+      <Link to="/" onClick={onHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
         <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
         <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
       </Link>
       <div className="hi-nav-links">
-        <Link to="/" className="hi-nav-link active">Home</Link>
+        <Link to="/" onClick={onHomeTop} className="hi-nav-link active">Home</Link>
         <Link to="/workflow" className="hi-nav-link">Workflow</Link>
         <Link to="/customers" className="hi-nav-link">Customers</Link>
         <Link to="/pricing"   className="hi-nav-link">Pricing</Link>
@@ -66,6 +67,13 @@ const COLLEGES = [
   { name: 'Geethanjali',         logo: '/college_logos/geetanjali.jpg' },
   { name: 'IARE',                logo: '/college_logos/IARE.jpg' },
   { name: 'Narayanamma',         logo: '/college_logos/narayanammma.png' },
+]
+
+const FOOTER_NAV_LINKS = [
+  { label: 'Home', to: '/' },
+  { label: 'Workflow', to: '/workflow' },
+  { label: 'Customers', to: '/customers' },
+  { label: 'Pricing', to: '/pricing' },
 ]
 
 function Logos() {
@@ -114,35 +122,54 @@ function CtaBlock() {
 }
 
 /* ─── Footer ─── */
-function Footer() {
+function Footer({ onHomeTop }) {
   return (
     <footer className="hi-foot">
       <div className="landing-container">
         <div className="hi-foot-grid">
-          <div className="hi-foot-col">
-            <div className="hi-nav-brand" style={{ marginBottom: 16 }}>
+          <div className="hi-foot-brand">
+            <Link to="/" onClick={onHomeTop} className="hi-nav-brand hi-foot-brand-link">
               <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
               <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
-            </div>
-            <p style={{ fontSize: 14, color: 'var(--ink-3)', maxWidth: 280, lineHeight: 1.55, margin: 0 }}>
-              Admissions calling, arranged for institutions. A Purview Services product.
+            </Link>
+            <p className="hi-foot-copy">
+              Admissions voice operations for engineering institutions, from first outreach to follow-up.
             </p>
           </div>
           <div className="hi-foot-col">
-            <h4>Platform</h4>
-            <a>Campaigns</a><a>Counselor desk</a><a>Follow-ups</a><a>Analytics</a><a>Telephony</a>
+            <h4>Navigate</h4>
+            <div className="hi-foot-links">
+              {FOOTER_NAV_LINKS.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={item.to === '/' ? onHomeTop : undefined}
+                  className="hi-foot-link"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </div>
           <div className="hi-foot-col">
-            <h4>Company</h4>
-            <a>Customers</a><a>Pricing</a><a>Security</a><a>Careers</a><a>Contact</a>
-          </div>
-          <div className="hi-foot-col">
-            <h4>Resources</h4>
-            <a>Docs</a><a>Changelog</a><a>Status</a><a>Privacy</a><a>Terms</a>
+            <h4>Contact</h4>
+            <div className="hi-foot-links">
+              <Link to="/book-demo" className="hi-foot-link">Book a demo</Link>
+              <a href="mailto:support@callohm.com" className="hi-foot-link">support@callohm.com</a>
+              <a
+                href="https://purviewservices.com"
+                target="_blank"
+                rel="noreferrer"
+                className="hi-foot-link"
+              >
+                Purview Services
+              </a>
+            </div>
           </div>
         </div>
         <div className="hi-foot-bottom">
-          <span>&#169; {new Date().getFullYear()} CallOHM &middot; Purview Services</span>
+          <span>&#169; {new Date().getFullYear()} CallOHM. All rights reserved.</span>
+          <span>Built by Purview Services</span>
         </div>
       </div>
     </footer>
@@ -152,15 +179,17 @@ function Footer() {
 /* ─── Page ─── */
 export default function Landing() {
   const [theme, toggleTheme] = useTheme()
+  const goHomeTop = useNavigateHomeTop()
+
   return (
     <div className="landing-v2" data-accent="clay" data-theme-scope={theme}>
       <div className="landing-container">
-        <Navbar theme={theme} onToggleTheme={toggleTheme} />
+        <Navbar theme={theme} onToggleTheme={toggleTheme} onHomeTop={goHomeTop} />
       </div>
       <Hero />
       <Logos />
       <CtaBlock />
-      <Footer />
+      <Footer onHomeTop={goHomeTop} />
     </div>
   )
 }

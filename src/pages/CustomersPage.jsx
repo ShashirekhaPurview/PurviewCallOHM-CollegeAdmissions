@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Moon, Sun, ArrowRight, Quote } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useNavigateHomeTop } from '../utils/homeNavigation'
 
 function useTheme() {
   const [theme, setTheme] = useState(() => {
@@ -74,17 +75,18 @@ const fade = (delay = 0) => ({
 
 export default function CustomersPage() {
   const [theme, toggleTheme] = useTheme()
+  const goHomeTop = useNavigateHomeTop()
 
   return (
     <div className="landing-v2" data-accent="clay" data-theme-scope={theme} style={{ minHeight: '100vh' }}>
 
       <nav className="hi-nav">
-        <Link to="/" className="hi-nav-brand" style={{ textDecoration: 'none' }}>
+        <Link to="/" onClick={goHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
           <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
           <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
         </Link>
         <div className="hi-nav-links">
-          <Link to="/" className="hi-nav-link">Home</Link>
+          <Link to="/" onClick={goHomeTop} className="hi-nav-link">Home</Link>
           <Link to="/workflow" className="hi-nav-link">Workflow</Link>
           <span className="hi-nav-link active">Customers</span>
           <Link to="/pricing" className="hi-nav-link">Pricing</Link>
