@@ -144,7 +144,7 @@ function Field({ id, label, value, onChange, placeholder, type = 'text', leading
 
 function Select({ id, label, value, onChange, options, placeholder }) {
   const [open, setOpen] = useState(false)
-  
+
   // Find selected option label
   let selectedLabel = placeholder || 'Select...'
   if (value) {
@@ -781,8 +781,8 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
         icon={UserPlus} max="max-w-2xl"
       >
         <form onSubmit={handleCreate} className="space-y-4">
-          <Field id="cname" label="Full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. Manish Vazzula" leading={<User size={14} />} autoFocus />
-          <Field id="cemail" label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="manish@example.com" leading={<Mail size={14} />} />
+          <Field id="cname" label="Full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. Priya Sharma" leading={<User size={14} />} autoFocus />
+          <Field id="cemail" label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="priya@example.com" leading={<Mail size={14} />} />
           <div className="grid grid-cols-[100px_1fr] gap-3">
             <Field id="ccode" label="Code" value={form.phone_country_code} onChange={e => setForm(f => ({ ...f, phone_country_code: e.target.value }))} placeholder="+91" />
             <Field id="cphone" label="Phone number" value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))} placeholder="9876543210" leading={<Phone size={14} />} />

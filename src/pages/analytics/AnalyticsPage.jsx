@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Gauge,
   Phone,
+  PhoneForwarded,
   Smile,
   User as UserIcon,
   XCircle,
@@ -19,6 +20,7 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  Download,
   Filter,
   HeartPulse,
   Info,
@@ -35,6 +37,7 @@ import {
   UserCheck,
   X,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { getConversation, getConversationAudio, listConversations } from '../../api/analytics/analyticsService'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
@@ -1134,6 +1137,35 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
   )
 }
 
+/* ─────────── conversation export columns ─────────── */
+
+function fmtIST(value) {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return value
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Kolkata',
+  }).format(d)
+}
+
+const CONV_EXPORT_COLUMNS = [
+  { key: 'contact_name',       label: 'Candidate',           checked: true,  extract: (c) => c.contact_name || '-' },
+  { key: 'contact_email',      label: 'Email',               checked: true,  extract: (c) => c.contact_email || '-' },
+  { key: 'contact_phone_number', label: 'Phone',             checked: true,  extract: (c) => c.contact_phone_number || '-' },
+  { key: 'contact_id',         label: 'Contact ID',          checked: false, extract: (c) => c.contact_id || '-' },
+  { key: 'status',             label: 'Status',              checked: true,  extract: (c) => (c.status || '-').replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase()) },
+  { key: 'business_outcome',   label: 'Outcome',             checked: true,  extract: (c) => c.business_outcome || '-' },
+  { key: 'dominant_mood',      label: 'Mood',                checked: true,  extract: (c) => c.dominant_mood || '-' },
+  { key: 'overall_call_score', label: 'Score',               checked: true,  extract: (c) => c.overall_call_score ?? '-' },
+  { key: 'call_duration_secs', label: 'Duration (sec)',       checked: true,  extract: (c) => c.call_duration_secs ?? '-' },
+  { key: 'call_summary',       label: 'Call Summary',        checked: false, extract: (c) => c.call_summary || '-' },
+  { key: 'processed_at',       label: 'Processed At',        checked: true,  extract: (c) => formatDateTime(c.processed_at) },
+  { key: 'callback_requested', label: 'Callback Requested',  checked: false, extract: (c) => c.callback_requested ? 'Yes' : 'No' },
+  { key: 'callback_time_utc',  label: 'Callback Time (IST)', checked: false, extract: (c) => fmtIST(c.callback_time_utc) },
+]
+
 export default function ConversationsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [items, setItems] = useState([])
@@ -1149,6 +1181,10 @@ export default function ConversationsPage() {
   const [outcomeFilter, setOutcomeFilter] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
+
+  /* ── export state ── */
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportCols, setExportCols] = useState(() => CONV_EXPORT_COLUMNS.map((c) => ({ ...c })))
 
   const currentUser = useMemo(() => getCurrentUser(), [])
   const isSuperAdmin = currentUser?.role === 'super_admin'
@@ -1285,6 +1321,32 @@ export default function ConversationsPage() {
     setOutcomeFilter('')
     setFromDate('')
     setToDate('')
+  }
+
+  /* ── export helpers ── */
+  function toggleExportCol(key) {
+    setExportCols((prev) => prev.map((c) => c.key === key ? { ...c, checked: !c.checked } : c))
+  }
+  function selectAllExportCols() {
+    setExportCols((prev) => prev.map((c) => ({ ...c, checked: true })))
+  }
+  function deselectAllExportCols() {
+    setExportCols((prev) => prev.map((c) => ({ ...c, checked: false })))
+  }
+  function handleExport() {
+    const activeCols = exportCols.filter((c) => c.checked)
+    if (activeCols.length === 0) return
+    const rows = items.map((item) => {
+      const row = {}
+      activeCols.forEach((col) => { row[col.label] = col.extract(item) })
+      return row
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = activeCols.map((col) => ({ wch: Math.max(col.label.length + 2, 18) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Conversations')
+    XLSX.writeFile(wb, `conversations_export_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    setExportOpen(false)
   }
 
   return (
@@ -1447,7 +1509,17 @@ export default function ConversationsPage() {
                   <p className="text-sm font-semibold text-slate-900">Recent conversations</p>
                   <p className="mt-1 text-xs text-slate-500">Open any row to inspect the complete report, signals, and transcript.</p>
                 </div>
-                <span className="text-xs font-medium text-slate-400">{items.length} visible</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-slate-400">{items.length} visible</span>
+                  <button
+                    onClick={() => setExportOpen(true)}
+                    disabled={items.length === 0}
+                    className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Download size={14} />
+                    Export
+                  </button>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -1455,11 +1527,15 @@ export default function ConversationsPage() {
                   <thead className="bg-slate-50/80 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                     <tr>
                       <th className="px-6 py-3 sm:px-8">Candidate</th>
+                      <th className="px-6 py-3">Email</th>
+                      <th className="px-6 py-3">Phone</th>
                       <th className="px-6 py-3">Processed</th>
                       <th className="px-6 py-3">Duration</th>
                       <th className="px-6 py-3">Score</th>
                       <th className="px-6 py-3">Outcome</th>
                       <th className="px-6 py-3">Mood</th>
+                      <th className="px-6 py-3">Callback</th>
+                      <th className="px-6 py-3">Callback Time</th>
                       <th className="px-6 py-3 text-right sm:px-8">Action</th>
                     </tr>
                   </thead>
@@ -1471,14 +1547,18 @@ export default function ConversationsPage() {
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
+                          <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
+                          <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-6 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5"><div className="h-6 animate-pulse rounded-full bg-slate-100" /></td>
+                          <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
+                          <td className="px-6 py-5"><div className="h-4 animate-pulse rounded-full bg-slate-100" /></td>
                           <td className="px-6 py-5 sm:px-8"><div className="ml-auto h-9 w-24 animate-pulse rounded-full bg-slate-100" /></td>
                         </tr>
                       ))
                     ) : items.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-20 text-center sm:px-8">
+                        <td colSpan={11} className="px-6 py-20 text-center sm:px-8">
                           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100">
                             <PhoneCall size={20} className="text-slate-400" />
                           </div>
@@ -1519,6 +1599,12 @@ export default function ConversationsPage() {
                                 )}
                               </div>
                             </td>
+                            <td className="px-6 py-5 align-top text-xs text-slate-500 whitespace-nowrap">
+                              {item.contact_email || '-'}
+                            </td>
+                            <td className="px-6 py-5 align-top font-mono text-xs text-slate-600 whitespace-nowrap">
+                              {item.contact_phone_number || '-'}
+                            </td>
                             <td className="px-6 py-5 align-top text-xs text-slate-500">
                               {formatDateTime(item.processed_at)}
                             </td>
@@ -1536,6 +1622,18 @@ export default function ConversationsPage() {
                             </td>
                             <td className="px-6 py-5 align-top">
                               <MetaPill meta={MOOD_META[item.dominant_mood]} />
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              {item.callback_requested ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                                  <PhoneForwarded size={11} /> Yes
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">No</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-5 align-top text-xs text-slate-500 whitespace-nowrap">
+                              {item.callback_time_utc ? fmtIST(item.callback_time_utc) : '-'}
                             </td>
                             <td className="px-6 py-5 text-right align-top sm:px-8">
                               <button
@@ -1573,6 +1671,118 @@ export default function ConversationsPage() {
                 </div>
               )}
             </Surface>
+
+            {/* Export columns modal */}
+            {exportOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div
+                  className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+                  onClick={() => setExportOpen(false)}
+                />
+                <div
+                  className="relative w-full max-w-xl rounded-2xl bg-white"
+                  style={{ boxShadow: '0 25px 60px rgba(15,23,42,0.16), 0 0 0 1px rgba(148,163,184,0.1)' }}
+                >
+                  {/* Header */}
+                  <div
+                    className="relative overflow-hidden rounded-t-2xl px-5 pt-5 pb-4"
+                    style={{ background: 'linear-gradient(135deg, #f8faff 0%, #eef1ff 50%, #f0f4ff 100%)' }}
+                  >
+                    <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-300/20 blur-2xl" />
+                    <div className="pointer-events-none absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-violet-300/15 blur-2xl" />
+                    <div className="relative flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-indigo-100">
+                          <Download size={17} className="text-indigo-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Export to Excel</h3>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            <span className="font-semibold text-indigo-600">{items.length}</span> conversations
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setExportOpen(false)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-slate-400 shadow-sm ring-1 ring-slate-200/60 transition hover:bg-white hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="px-5 py-4 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Select columns</p>
+                      <div className="flex items-center gap-1">
+                        <button onClick={selectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-indigo-600 transition hover:bg-indigo-50">Select all</button>
+                        <span className="text-slate-200">·</span>
+                        <button onClick={deselectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">Clear</button>
+                      </div>
+                    </div>
+
+                    {/* 3-column grid */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {exportCols.map((col) => {
+                        const active = col.checked
+                        return (
+                          <label
+                            key={col.key}
+                            className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-xs transition-all duration-150 ${
+                              active
+                                ? 'border-indigo-400/50 bg-gradient-to-r from-indigo-50/80 to-violet-50/40 text-indigo-900'
+                                : 'border-transparent bg-slate-50/80 text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
+                            }`}
+                          >
+                            <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-150 ${
+                              active
+                                ? 'border-indigo-500 bg-indigo-500'
+                                : 'border-slate-300 bg-white group-hover:border-slate-400'
+                            }`}>
+                              {active && <Check size={10} className="text-white" strokeWidth={3} />}
+                            </div>
+                            <input type="checkbox" checked={col.checked} onChange={() => toggleExportCol(col.key)} className="sr-only" />
+                            <span className="font-semibold truncate">{col.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+
+                    {/* Summary */}
+                    <div
+                      className="flex items-center justify-between rounded-lg px-4 py-2.5"
+                      style={{ background: 'linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%)', border: '1px solid rgba(148,163,184,0.12)' }}
+                    >
+                      <p className="text-[11px] text-slate-500">
+                        <span className="text-xs font-bold text-indigo-600">{exportCols.filter((c) => c.checked).length}</span>
+                        <span className="text-slate-400"> / {exportCols.length} columns</span>
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-400">{items.length} rows</p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2.5">
+                      <button
+                        onClick={() => setExportOpen(false)}
+                        className="flex-1 rounded-lg border-2 border-slate-200 py-2.5 text-xs font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleExport}
+                        disabled={exportCols.filter((c) => c.checked).length === 0}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-500/20 transition hover:shadow-indigo-500/30 disabled:opacity-40 disabled:shadow-none"
+                        style={{ background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 50%, #4338CA 100%)' }}
+                      >
+                        <Download size={13} />
+                        Download .xlsx
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

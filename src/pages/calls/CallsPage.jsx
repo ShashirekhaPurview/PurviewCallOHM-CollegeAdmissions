@@ -3,8 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Building2, Check, ChevronDown, CircleAlert,
-  PhoneCall, RefreshCw, Search, X, Copy,
+  PhoneCall, RefreshCw, Search, X, Copy, Download,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
 import { listContacts } from '../../api/contacts/contactService'
@@ -265,6 +266,28 @@ function OrgPicker({ onSelect }) {
   )
 }
 
+/* ─────────── export columns definition ─────────── */
+
+const EXPORT_COLUMNS = [
+  { key: 'full_name',    label: 'Full Name',     checked: true,  extract: (c) => c.full_name || '-' },
+  { key: 'email',        label: 'Email',          checked: true,  extract: (c) => c.email || '-' },
+  { key: 'full_phone',   label: 'Phone',          checked: true,  extract: (c) => c.full_phone || '-' },
+  { key: 'city',         label: 'City',           checked: false, extract: (c) => c.city || '-' },
+  { key: 'state',        label: 'State',          checked: false, extract: (c) => c.state || '-' },
+  { key: 'status',       label: 'Status',         checked: true,  extract: (c) => niceLabel(c.status) },
+  { key: 'source',       label: 'Source',         checked: false, extract: (c) => niceLabel(c.source) },
+  { key: 'program',      label: 'Program',        checked: false, extract: (c) => c.program || '-' },
+  { key: 'contact_id',   label: 'Contact ID',     checked: false, extract: (c) => c.contact_id || '-' },
+  { key: 'created_at',   label: 'Created At',     checked: false, extract: (c) => fmtDate(c.created_at) },
+  { key: 'callback_requested', label: 'Callback Requested', checked: false, extract: (c) => c.callback_requested ? 'Yes' : 'No' },
+  { key: 'callback_time_utc',  label: 'Callback Time (IST)', checked: false, extract: (c) => {
+    if (!c.callback_time_utc) return '-'
+    const d = new Date(c.callback_time_utc)
+    if (isNaN(d)) return c.callback_time_utc
+    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).format(d)
+  }},
+]
+
 /* ─────────── calls list ─────────── */
 
 function CallsList({ orgId, isSuper, onBackToOrgs }) {
@@ -281,6 +304,10 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [calling, setCalling] = useState(false)
   const [results, setResults] = useState(null) // { results, total, succeeded, failed }
+
+  /* ── export state ── */
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportCols, setExportCols] = useState(() => EXPORT_COLUMNS.map(c => ({ ...c })))
 
   const showToast = (msg, type = 'success') => setToast({ msg, type })
 
@@ -396,6 +423,33 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
     return results.results.map(r => ({ ...r, contact: byId.get(r.contact_id) }))
   }, [results, contacts])
 
+  /* ── export helpers ── */
+  function toggleExportCol(key) {
+    setExportCols(prev => prev.map(c => c.key === key ? { ...c, checked: !c.checked } : c))
+  }
+  function selectAllExportCols() {
+    setExportCols(prev => prev.map(c => ({ ...c, checked: true })))
+  }
+  function deselectAllExportCols() {
+    setExportCols(prev => prev.map(c => ({ ...c, checked: false })))
+  }
+  function handleExport() {
+    const activeCols = exportCols.filter(c => c.checked)
+    if (activeCols.length === 0) return
+    const rows = filtered.map(contact => {
+      const row = {}
+      activeCols.forEach(col => { row[col.label] = col.extract(contact) })
+      return row
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    /* auto-size columns */
+    ws['!cols'] = activeCols.map(col => ({ wch: Math.max(col.label.length + 2, 18) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Contacts')
+    XLSX.writeFile(wb, `contacts_export_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    setExportOpen(false)
+  }
+
   return (
     <div
       className="min-h-full px-8 py-7"
@@ -426,6 +480,15 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
+            <motion.button
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              onClick={() => setExportOpen(true)}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download size={14} />
+              Export
+            </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               disabled={selected.size === 0}
@@ -674,6 +737,75 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Export columns modal */}
+      <Modal
+        open={exportOpen} onClose={() => setExportOpen(false)}
+        title="Export to Excel" subtitle={`${filtered.length} contacts will be exported`}
+        icon={Download}
+        iconBg="#EEF2FF" iconFg="#4F46E5"
+      >
+        <div className="space-y-5">
+          {/* Select / Deselect all */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Choose columns</p>
+            <div className="flex items-center gap-3">
+              <button onClick={selectAllExportCols} className="text-xs font-semibold text-indigo-600 transition hover:text-indigo-800">Select all</button>
+              <span className="text-gray-200">|</span>
+              <button onClick={deselectAllExportCols} className="text-xs font-semibold text-gray-400 transition hover:text-gray-600">Clear</button>
+            </div>
+          </div>
+
+          {/* Column checkboxes */}
+          <div className="grid grid-cols-2 gap-2">
+            {exportCols.map(col => (
+              <label
+                key={col.key}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${
+                  col.checked
+                    ? 'border-indigo-200 bg-indigo-50/60 text-indigo-900 shadow-sm'
+                    : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={col.checked}
+                  onChange={() => toggleExportCol(col.key)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="font-medium">{col.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Counter + Action */}
+          <div className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
+            <p className="text-xs text-gray-500">
+              <span className="font-bold text-gray-800">{exportCols.filter(c => c.checked).length}</span> of {exportCols.length} columns selected
+            </p>
+            <p className="text-xs text-gray-400">{filtered.length} rows</p>
+          </div>
+
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => setExportOpen(false)}
+              className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <motion.button
+              onClick={handleExport}
+              whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+              disabled={exportCols.filter(c => c.checked).length === 0}
+              className="flex flex-1 items-center justify-center gap-2 rounded-md py-3 text-sm font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #4F46E5, #4338CA)' }}
+            >
+              <Download size={14} />
+              Download .xlsx
+            </motion.button>
+          </div>
+        </div>
       </Modal>
 
       <Toast toast={toast} />
