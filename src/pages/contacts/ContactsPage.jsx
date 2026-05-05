@@ -6,6 +6,7 @@ import {
   Download, Mail, MapPin, Phone, Plus, RefreshCw, Search, Trash2,
   Upload, User, UserPlus, X, Copy,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
 import {
@@ -414,6 +415,23 @@ const INITIAL_FORM = {
   twelfth_score: '', twelfth_board: 'CBSE',
 }
 
+const CONTACTS_EXPORT_COLUMNS = [
+  { key: 'full_name',       label: 'Full Name',      checked: true,  extract: (c) => c.full_name || '-' },
+  { key: 'status',          label: 'Status',         checked: true,  extract: (c) => niceLabel(c.status) },
+  { key: 'source',          label: 'Source',         checked: true,  extract: (c) => niceLabel(c.source) },
+  { key: 'email',           label: 'Email',          checked: true,  extract: (c) => c.email || '-' },
+  { key: 'phone',           label: 'Phone',          checked: true,  extract: (c) => c.full_phone || '-' },
+  { key: 'city',            label: 'City',           checked: false, extract: (c) => c.city || '-' },
+  { key: 'state',           label: 'State',          checked: false, extract: (c) => c.state || '-' },
+  { key: 'twelfth_score',   label: '12th Score (%)', checked: false, extract: (c) => c.twelfth_score ?? '-' },
+  { key: 'twelfth_board',   label: '12th Board',     checked: false, extract: (c) => c.twelfth_board || '-' },
+  { key: 'created_at',      label: 'Created',        checked: true,  extract: (c) => fmtDate(c.created_at) },
+  { key: 'updated_at',      label: 'Updated',        checked: false, extract: (c) => fmtDate(c.updated_at) },
+  { key: 'interested',      label: 'Interested',     checked: false, extract: (c) => c.call_profile ? (c.call_profile.interested ? 'Yes' : 'No') : '-' },
+  { key: 'programs',        label: 'Programs Interested', checked: false, extract: (c) => c.call_profile?.interested_programs?.join(', ') || '' },
+  { key: 'exam_scores',     label: 'Exam Scores',    checked: false, extract: (c) => c.call_profile?.exam_scores?.map(e => `${e.exam} (Score: ${e.score}, Rank: ${e.rank})`).join(' | ') || '-' },
+]
+
 function ContactsList({ orgId, isSuper, onBackToOrgs }) {
   const [contacts, setContacts] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
@@ -442,6 +460,10 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
   const [viewing, setViewing] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deletingId, setDeletingId] = useState('')
+
+  // export
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportCols, setExportCols] = useState(() => CONTACTS_EXPORT_COLUMNS.map((c) => ({ ...c })))
 
   const showToast = (msg, type = 'success') => setToast({ msg, type })
 
@@ -517,6 +539,13 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
     if (!form.full_name.trim()) { setCreateErr('Full name is required.'); return }
     if (!form.email.trim()) { setCreateErr('Email is required.'); return }
     if (!form.phone_number.trim()) { setCreateErr('Phone number is required.'); return }
+    if (form.twelfth_score !== '') {
+      const scoreNum = Number(form.twelfth_score)
+      if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
+        setCreateErr('Please enter a valid percentage for 12th score (max 100).')
+        return
+      }
+    }
     setCreating(true); setCreateErr('')
     try {
       const payload = {
@@ -601,6 +630,31 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
     }
   }
 
+  function toggleExportCol(key) {
+    setExportCols((prev) => prev.map((c) => c.key === key ? { ...c, checked: !c.checked } : c))
+  }
+  function selectAllExportCols() {
+    setExportCols((prev) => prev.map((c) => ({ ...c, checked: true })))
+  }
+  function deselectAllExportCols() {
+    setExportCols((prev) => prev.map((c) => ({ ...c, checked: false })))
+  }
+  function handleExport() {
+    const activeCols = exportCols.filter((c) => c.checked)
+    if (activeCols.length === 0) return
+    const rows = filtered.map((item) => {
+      const row = {}
+      activeCols.forEach((col) => { row[col.label] = col.extract(item) })
+      return row
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    ws['!cols'] = activeCols.map((col) => ({ wch: Math.max(col.label.length + 2, 18) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Contacts')
+    XLSX.writeFile(wb, `contacts_export_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    setExportOpen(false)
+  }
+
   return (
     <div
       className="min-h-full px-8 py-7"
@@ -642,6 +696,13 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
               className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50"
             >
               <Upload size={13} /> Import CSV
+            </button>
+            <button
+              onClick={() => setExportOpen(true)}
+              disabled={filtered.length === 0}
+              className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Download size={13} /> Export
             </button>
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
@@ -1011,6 +1072,118 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
           </div>
         )}
       </Modal>
+
+      {/* Export columns modal */}
+      {exportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setExportOpen(false)}
+          />
+          <div
+            className="relative w-full max-w-xl rounded-2xl bg-white"
+            style={{ boxShadow: '0 25px 60px rgba(15,23,42,0.16), 0 0 0 1px rgba(148,163,184,0.1)' }}
+          >
+            {/* Header */}
+            <div
+              className="relative overflow-hidden rounded-t-2xl px-5 pt-5 pb-4"
+              style={{ background: 'linear-gradient(135deg, #f8faff 0%, #eef1ff 50%, #f0f4ff 100%)' }}
+            >
+              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-300/20 blur-2xl" />
+              <div className="pointer-events-none absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-violet-300/15 blur-2xl" />
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-indigo-100">
+                    <Download size={17} className="text-indigo-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Export to Excel</h3>
+                    <p className="mt-0.5 text-[11px] text-slate-500">
+                      <span className="font-semibold text-indigo-600">{filtered.length}</span> contacts
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setExportOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-slate-400 shadow-sm ring-1 ring-slate-200/60 transition hover:bg-white hover:text-slate-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 space-y-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Select columns</p>
+                <div className="flex items-center gap-1">
+                  <button onClick={selectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-indigo-600 transition hover:bg-indigo-50">Select all</button>
+                  <span className="text-slate-200">·</span>
+                  <button onClick={deselectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">Clear</button>
+                </div>
+              </div>
+
+              {/* 3-column grid */}
+              <div className="grid grid-cols-3 gap-2">
+                {exportCols.map((col) => {
+                  const active = col.checked
+                  return (
+                    <label
+                      key={col.key}
+                      className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-xs transition-all duration-150 ${
+                        active
+                          ? 'border-indigo-400/50 bg-gradient-to-r from-indigo-50/80 to-violet-50/40 text-indigo-900'
+                          : 'border-transparent bg-slate-50/80 text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
+                      }`}
+                    >
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-150 ${
+                        active
+                          ? 'border-indigo-500 bg-indigo-500'
+                          : 'border-slate-300 bg-white group-hover:border-slate-400'
+                      }`}>
+                        {active && <Check size={10} className="text-white" strokeWidth={3} />}
+                      </div>
+                      <input type="checkbox" checked={col.checked} onChange={() => toggleExportCol(col.key)} className="sr-only" />
+                      <span className="font-semibold truncate">{col.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+
+              {/* Summary */}
+              <div
+                className="flex items-center justify-between rounded-lg px-4 py-2.5"
+                style={{ background: 'linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%)', border: '1px solid rgba(148,163,184,0.12)' }}
+              >
+                <p className="text-[11px] text-slate-500">
+                  <span className="text-xs font-bold text-indigo-600">{exportCols.filter((c) => c.checked).length}</span>
+                  <span className="text-slate-400"> / {exportCols.length} columns</span>
+                </p>
+                <p className="text-[11px] font-semibold text-slate-400">{filtered.length} rows</p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => setExportOpen(false)}
+                  className="flex-1 rounded-lg border-2 border-slate-200 py-2.5 text-xs font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={exportCols.filter((c) => c.checked).length === 0}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-500/20 transition hover:shadow-indigo-500/30 disabled:opacity-40 disabled:shadow-none"
+                  style={{ background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 50%, #4338CA 100%)' }}
+                >
+                  <Download size={13} />
+                  Download .xlsx
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast toast={toast} />
     </div>
