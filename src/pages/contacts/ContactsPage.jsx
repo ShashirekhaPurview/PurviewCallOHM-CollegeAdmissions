@@ -859,6 +859,10 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
                 let val = e.target.value.replace(/[^0-9.]/g, '');
                 const parts = val.split('.');
                 if (parts.length > 2) val = parts[0] + '.' + parts.slice(1).join('');
+                if (!val.includes('.') && val.length >= 3 && Number(val) > 100) {
+                  val = val.slice(0, -1) + '.' + val.slice(-1);
+                }
+                if (val !== '' && val !== '.' && Number(val) > 100) val = '100';
                 if (val.length > 5) val = val.slice(0, 5);
                 setForm(f => ({ ...f, twelfth_score: val }));
               }}

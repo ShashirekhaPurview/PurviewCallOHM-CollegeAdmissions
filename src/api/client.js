@@ -21,7 +21,9 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const message = data?.detail || data?.message || `Request failed (${res.status})`
-    throw new Error(message)
+    const err = new Error(message)
+    err.status = res.status
+    throw err
   }
 
   return data

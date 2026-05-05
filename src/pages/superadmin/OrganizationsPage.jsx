@@ -174,9 +174,10 @@ export default function OrganizationsPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [newName, setNewName] = useState('')
-  const [newLocation, setNewLocation] = useState('')
+  const INITIAL_ADDRESS = { address1: '', address2: '', city: '', state: '', pincode: '' }
+  const [newAddress, setNewAddress] = useState(INITIAL_ADDRESS)
   const [creating, setCreating] = useState(false)
-  const [createErr, setCreateErr] = useState({ name: '', location: '', form: '' })
+  const [createErr, setCreateErr] = useState({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
 
   const [renameOrg, setRenameOrg] = useState(null)
   const [renameName, setRenameName] = useState('')
@@ -212,24 +213,36 @@ export default function OrganizationsPage() {
   async function handleCreate(e) {
     e.preventDefault()
     const name = newName.trim()
-    const location = newLocation.trim()
+    const address1 = newAddress.address1.trim()
+    const address2 = newAddress.address2.trim()
+    const city = newAddress.city.trim()
+    const state = newAddress.state.trim()
+    const pincode = newAddress.pincode.trim()
 
-    if (!name || !location) {
-      setCreateErr({
-        name: !name ? 'Name is required.' : '',
-        location: !location ? 'Location is required.' : '',
-        form: '',
-      })
+    const errs = {
+      name: !name ? 'Name is required.' : '',
+      address1: !address1 ? 'Address line 1 is required.' : '',
+      city: !city ? 'City is required.' : '',
+      state: !state ? 'State is required.' : '',
+      pincode: !pincode
+        ? 'Pincode is required.'
+        : !/^\d{4,10}$/.test(pincode) ? 'Enter a valid pincode.' : '',
+      form: '',
+    }
+    if (errs.name || errs.address1 || errs.city || errs.state || errs.pincode) {
+      setCreateErr(errs)
       return
     }
 
+    const location = [address1, address2, city, state, pincode].filter(Boolean).join(', ')
+
     setCreating(true)
-    setCreateErr({ name: '', location: '', form: '' })
+    setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
     try {
       const created = await createOrganization({ name, location })
       setCreateOpen(false)
       setNewName('')
-      setNewLocation('')
+      setNewAddress(INITIAL_ADDRESS)
       showToast(`"${created.name}" created`)
       await load({ keepToast: true })
     } catch (e) {
@@ -310,8 +323,8 @@ export default function OrganizationsPage() {
               onClick={() => {
                 setCreateOpen(true)
                 setNewName('')
-                setNewLocation('')
-                setCreateErr({ name: '', location: '', form: '' })
+                setNewAddress(INITIAL_ADDRESS)
+                setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
               }}
               className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
               style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
@@ -438,32 +451,61 @@ export default function OrganizationsPage() {
         onClose={() => {
           setCreateOpen(false)
           setNewName('')
-          setNewLocation('')
-          setCreateErr({ name: '', location: '', form: '' })
+          setNewAddress(INITIAL_ADDRESS)
+          setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
         }}
         title="New Organization"
         icon={Building2}
       >
-        <form onSubmit={handleCreate} className="space-y-5">
+        <form onSubmit={handleCreate} className="space-y-4">
           <Field
             id="orgName" label="Organization name" value={newName}
             onChange={e => setNewName(e.target.value)} placeholder="e.g. Acme University"
             autoFocus error={createErr.name}
           />
           <Field
-            id="orgLocation" label="Location" value={newLocation}
-            onChange={e => setNewLocation(e.target.value)} placeholder="e.g. Bengaluru"
-            error={createErr.location}
+            id="orgAddress1" label="Address line 1" value={newAddress.address1}
+            onChange={e => setNewAddress(a => ({ ...a, address1: e.target.value }))}
+            placeholder="Street, building, area"
+            error={createErr.address1}
+          />
+          <Field
+            id="orgAddress2" label="Address line 2 (optional)" value={newAddress.address2}
+            onChange={e => setNewAddress(a => ({ ...a, address2: e.target.value }))}
+            placeholder="Landmark, suite, floor"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              id="orgCity" label="City" value={newAddress.city}
+              onChange={e => setNewAddress(a => ({ ...a, city: e.target.value }))}
+              placeholder="Bengaluru"
+              error={createErr.city}
+            />
+            <Field
+              id="orgState" label="State" value={newAddress.state}
+              onChange={e => setNewAddress(a => ({ ...a, state: e.target.value }))}
+              placeholder="Karnataka"
+              error={createErr.state}
+            />
+          </div>
+          <Field
+            id="orgPincode" label="Pincode" value={newAddress.pincode}
+            onChange={e => {
+              const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
+              setNewAddress(a => ({ ...a, pincode: v }))
+            }}
+            placeholder="560001"
+            error={createErr.pincode}
           />
           {createErr.form && <p className="text-xs font-medium text-red-500">{createErr.form}</p>}
-          <div className="flex gap-2.5">
+          <div className="flex gap-2.5 pt-1">
             <button
               type="button"
               onClick={() => {
                 setCreateOpen(false)
                 setNewName('')
-                setNewLocation('')
-                setCreateErr({ name: '', location: '', form: '' })
+                setNewAddress(INITIAL_ADDRESS)
+                setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
               }}
               className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
               Cancel

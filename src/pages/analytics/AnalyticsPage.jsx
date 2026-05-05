@@ -41,6 +41,7 @@ import * as XLSX from 'xlsx'
 import { getConversation, getConversationAudio, listConversations } from '../../api/analytics/analyticsService'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
+import { getContact } from '../../api/contacts/contactService'
 
 const OUTCOME_META = {
   SUCCESS: { label: 'Success', tone: 'green' },
@@ -305,6 +306,345 @@ function HeroStat({ icon: Icon, label, value, accent = 'indigo' }) {
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
         <p className="mt-0.5 truncate text-sm font-bold text-slate-900">{value || '-'}</p>
       </div>
+    </div>
+  )
+}
+
+function KpiCard({ icon: Icon, label, value, sub, accent = 'indigo' }) {
+  const tones = {
+    indigo:  { ring: 'ring-indigo-100',  iconBg: 'bg-indigo-50',  iconText: 'text-indigo-600',  glow: 'from-indigo-50/70' },
+    emerald: { ring: 'ring-emerald-100', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', glow: 'from-emerald-50/70' },
+    amber:   { ring: 'ring-amber-100',   iconBg: 'bg-amber-50',   iconText: 'text-amber-600',   glow: 'from-amber-50/70' },
+    sky:     { ring: 'ring-sky-100',     iconBg: 'bg-sky-50',     iconText: 'text-sky-600',     glow: 'from-sky-50/70' },
+    rose:    { ring: 'ring-rose-100',    iconBg: 'bg-rose-50',    iconText: 'text-rose-600',    glow: 'from-rose-50/70' },
+    violet:  { ring: 'ring-violet-100',  iconBg: 'bg-violet-50',  iconText: 'text-violet-600',  glow: 'from-violet-50/70' },
+  }
+  const t = tones[accent] || tones.indigo
+  return (
+    <div className={`relative overflow-hidden rounded-xl bg-white p-5 shadow-sm ring-1 ${t.ring}`}>
+      <div className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${t.glow} to-transparent`} />
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+          <p className="mt-2 text-2xl font-bold leading-none tracking-tight text-slate-900">{value}</p>
+          {sub && <p className="mt-2 text-[11px] font-medium text-slate-500">{sub}</p>}
+        </div>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${t.iconBg} ${t.iconText}`}>
+          {Icon && <Icon size={18} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OutcomeDonut({ counts, total }) {
+  const segments = [
+    { key: 'SUCCESS', label: 'Success', value: counts.SUCCESS || 0, color: '#10b981' },
+    { key: 'PARTIAL', label: 'Partial', value: counts.PARTIAL || 0, color: '#f59e0b' },
+    { key: 'FAILURE', label: 'Failure', value: counts.FAILURE || 0, color: '#f43f5e' },
+    { key: 'NONE',    label: 'Untagged', value: counts.NONE || 0, color: '#cbd5e1' },
+  ].filter((s) => s.value > 0)
+
+  const size = 150
+  const stroke = 20
+  const r = (size - stroke) / 2
+  const c = 2 * Math.PI * r
+  const denom = total || 1
+  let offset = 0
+
+  const successPct = total ? Math.round(((counts.SUCCESS || 0) / total) * 100) : 0
+
+  const [hovered, setHovered] = useState(null)
+  const hoveredSeg = segments.find((s) => s.key === hovered)
+  const hoveredPct = hoveredSeg && total ? Math.round((hoveredSeg.value / total) * 100) : 0
+
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <div className="relative shrink-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90 overflow-visible">
+          <circle cx={size / 2} cy={size / 2} r={r} stroke="#f1f5f9" strokeWidth={stroke} fill="none" />
+          {segments.map((s) => {
+            const len = (s.value / denom) * c
+            const dasharray = `${len} ${c - len}`
+            const dashoffset = -offset
+            offset += len
+            const segPct = total ? Math.round((s.value / total) * 100) : 0
+            const isHovered = hovered === s.key
+            return (
+              <circle
+                key={s.key}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                stroke={s.color}
+                strokeWidth={isHovered ? stroke + 3 : stroke}
+                strokeLinecap="butt"
+                strokeDasharray={dasharray}
+                strokeDashoffset={dashoffset}
+                fill="none"
+                style={{ cursor: 'pointer', transition: 'stroke-width 120ms ease' }}
+                onMouseEnter={() => setHovered(s.key)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                <title>{`${s.label}: ${s.value} call${s.value === 1 ? '' : 's'} (${segPct}%)`}</title>
+              </circle>
+            )
+          })}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          {hoveredSeg ? (
+            <>
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: hoveredSeg.color }}>{hoveredSeg.label}</span>
+              <span className="text-2xl font-bold text-slate-900">{hoveredPct}%</span>
+              <span className="text-[10px] font-medium text-slate-400">{hoveredSeg.value} of {total}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Success</span>
+              <span className="text-2xl font-bold text-slate-900">{successPct}%</span>
+              <span className="text-[10px] font-medium text-slate-400">of {total}</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="w-full space-y-1.5">
+        {segments.length === 0 ? (
+          <p className="text-xs text-slate-400">No outcomes captured yet.</p>
+        ) : (
+          segments.map((s) => {
+            const pct = total ? Math.round((s.value / total) * 100) : 0
+            const isHovered = hovered === s.key
+            return (
+              <div
+                key={s.key}
+                className={`relative flex cursor-pointer items-center gap-3 rounded-md px-2 py-1 transition ${isHovered ? 'bg-slate-50' : ''}`}
+                onMouseEnter={() => setHovered(s.key)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                {isHovered && (
+                  <div
+                    className="pointer-events-none absolute left-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg"
+                    style={{ bottom: 'calc(100% + 6px)' }}
+                  >
+                    <span style={{ color: s.color }}>{s.label}</span>
+                    <span className="ml-1.5 text-slate-200">· {s.value} call{s.value === 1 ? '' : 's'}</span>
+                    <span className="ml-1.5 text-slate-400">({pct}%)</span>
+                  </div>
+                )}
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                <span className="flex-1 text-xs font-medium text-slate-600">{s.label}</span>
+                <span className="text-xs font-semibold text-slate-900">{s.value}</span>
+                <span className="w-9 text-right text-[10px] font-semibold text-slate-400">{pct}%</span>
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+const SCORE_BUCKET_NAMES = ['Poor', 'Fair', 'OK', 'Good', 'Great']
+
+function ScoreHistogram({ buckets }) {
+  const [hovered, setHovered] = useState(null)
+  const max = Math.max(1, ...buckets.map((b) => b.count))
+  const totalScored = buckets.reduce((sum, b) => sum + b.count, 0)
+  const hoveredBucket = hovered != null ? buckets[hovered] : null
+  const hoveredName = hovered != null ? SCORE_BUCKET_NAMES[hovered] : null
+  const hoveredPct = hoveredBucket && totalScored ? Math.round((hoveredBucket.count / totalScored) * 100) : 0
+
+  const yAxisTicks = [max, Math.round(max / 2), 0]
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          Calls by score (out of 10)
+        </p>
+        <p className="text-[10px] font-medium text-slate-400">{totalScored} scored</p>
+      </div>
+
+      <div className="relative flex gap-3">
+        <div className="flex h-32 flex-col justify-between text-right text-[9px] font-semibold text-slate-300">
+          {yAxisTicks.map((t) => (
+            <span key={t}>{t}</span>
+          ))}
+        </div>
+
+        <div className="relative flex-1">
+          <div
+            className="absolute inset-x-0 top-0 h-32"
+            style={{
+              backgroundImage:
+                'linear-gradient(to bottom, transparent calc(50% - 1px), #f1f5f9 calc(50% - 1px), #f1f5f9 50%, transparent 50%)',
+            }}
+          />
+          <div className="relative flex h-32 items-end gap-2">
+            {buckets.map((b, i) => {
+              const pct = (b.count / max) * 100
+              const isHovered = hovered === i
+              return (
+                <div
+                  key={b.label}
+                  className="relative flex flex-1 cursor-pointer flex-col items-center"
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  title={`${SCORE_BUCKET_NAMES[i]} (score ${b.label}): ${b.count} call${b.count === 1 ? '' : 's'}`}
+                >
+                  {isHovered && (
+                    <div
+                      className={`pointer-events-none absolute z-20 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg ${
+                        i === 0 ? 'left-0' : i === buckets.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                      }`}
+                      style={{ bottom: 'calc(100% + 6px)' }}
+                    >
+                      <span style={{ color: b.color }}>{SCORE_BUCKET_NAMES[i]}</span>
+                      <span className="ml-1.5 text-slate-300">score {b.label}</span>
+                      <span className="ml-1.5 text-slate-200">· {b.count} call{b.count === 1 ? '' : 's'}</span>
+                      <span className="ml-1.5 text-slate-400">({hoveredPct}%)</span>
+                    </div>
+                  )}
+                  <div className="relative flex w-full flex-1 items-end">
+                    <div
+                      className="relative w-full rounded-t-md transition-all"
+                      style={{
+                        height: `${pct}%`,
+                        minHeight: b.count > 0 ? '6px' : '0',
+                        background: `linear-gradient(180deg, ${b.color}, ${b.color}cc)`,
+                        filter: isHovered ? 'brightness(1.08)' : 'none',
+                        transform: isHovered ? 'scaleY(1.04)' : 'scaleY(1)',
+                        transformOrigin: 'bottom',
+                        boxShadow: isHovered ? `0 0 0 2px ${b.color}33` : 'none',
+                      }}
+                    >
+                      {b.count > 0 && (
+                        <span className="absolute left-1/2 top-1 -translate-x-1/2 text-[10px] font-bold text-white drop-shadow">
+                          {b.count}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2 flex gap-2 pl-6">
+        {buckets.map((b, i) => (
+          <div
+            key={`l-${b.label}`}
+            className={`flex flex-1 flex-col items-center transition ${hovered === i ? 'opacity-100' : 'opacity-90'}`}
+          >
+            <span className={`text-[10px] font-semibold ${hovered === i ? 'text-slate-900' : 'text-slate-600'}`}>
+              {SCORE_BUCKET_NAMES[i]}
+            </span>
+            <span className={`text-[9px] font-medium ${hovered === i ? 'text-slate-500' : 'text-slate-400'}`}>
+              {b.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MoodBars({ entries, total }) {
+  const [hovered, setHovered] = useState(null)
+  if (!entries.length) return <p className="text-xs text-slate-400">No mood data yet.</p>
+  const max = Math.max(1, ...entries.map((e) => e.count))
+  return (
+    <div className="space-y-3">
+      {entries.map((e) => {
+        const pct = (e.count / max) * 100
+        const sharePct = total ? Math.round((e.count / total) * 100) : 0
+        const isHovered = hovered === e.mood
+        return (
+          <div
+            key={e.mood}
+            className={`relative cursor-pointer rounded-md px-2 py-1 transition ${isHovered ? 'bg-slate-50' : ''}`}
+            onMouseEnter={() => setHovered(e.mood)}
+            onMouseLeave={() => setHovered(null)}
+          >
+            {isHovered && (
+              <div
+                className="pointer-events-none absolute left-2 z-20 whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-lg"
+                style={{ bottom: 'calc(100% + 6px)' }}
+              >
+                <span style={{ color: e.color }}>{e.label}</span>
+                <span className="ml-1.5 text-slate-200">· {e.count} call{e.count === 1 ? '' : 's'}</span>
+                <span className="ml-1.5 text-slate-400">({sharePct}%)</span>
+              </div>
+            )}
+            <div className="mb-1 flex items-center justify-between text-[11px]">
+              <span className={`font-semibold transition ${isHovered ? 'text-slate-900' : 'text-slate-700'}`}>{e.label}</span>
+              <span className={`font-medium transition ${isHovered ? 'text-slate-700' : 'text-slate-400'}`}>{e.count} · {sharePct}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${pct}%`,
+                  background: e.color,
+                  filter: isHovered ? 'brightness(1.1)' : 'none',
+                  boxShadow: isHovered ? `0 0 0 2px ${e.color}33` : 'none',
+                }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function VolumeSparkline({ points }) {
+  if (!points.length) return null
+  const max = Math.max(1, ...points.map((p) => p.count))
+  const peak = points.reduce((acc, p) => (p.count > acc.count ? p : acc), points[0])
+  return (
+    <div>
+      <div className="flex h-28 items-end gap-1.5">
+        {points.map((p, idx) => {
+          const pct = (p.count / max) * 100
+          const isPeak = p.date === peak.date && p.count > 0
+          return (
+            <div key={`${p.date}-${idx}`} className="group relative flex flex-1 flex-col items-center gap-1.5">
+              <div className="flex w-full flex-1 items-end">
+                <div
+                  className={`w-full rounded-t-md transition-all ${isPeak ? 'bg-indigo-500' : 'bg-indigo-200 group-hover:bg-indigo-300'}`}
+                  style={{ height: `${pct}%`, minHeight: p.count > 0 ? '4px' : '0' }}
+                  title={`${p.label}: ${p.count}`}
+                />
+              </div>
+              <span className="text-[9px] font-medium text-slate-400">{p.short}</span>
+            </div>
+          )
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Peak: <span className="font-semibold text-slate-800">{peak.label}</span> with {peak.count} call{peak.count === 1 ? '' : 's'}
+      </p>
+    </div>
+  )
+}
+
+function ChartCard({ title, subtitle, icon: Icon, children, action }) {
+  return (
+    <div className="flex flex-col rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {Icon && <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500"><Icon size={14} /></span>}
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="flex-1">{children}</div>
     </div>
   )
 }
@@ -672,7 +1012,7 @@ function DetailSkeleton() {
   )
 }
 
-function ConversationDetail({ conversationId, summary, orgId, onBack }) {
+function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [], onBack }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -680,6 +1020,14 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
   const [copied, setCopied] = useState(false)
   const [audioUrl, setAudioUrl] = useState('')
   const [audioError, setAudioError] = useState('')
+  const [callProfile, setCallProfile] = useState(null)
+
+  useEffect(() => {
+    const main = document.querySelector('main')
+    if (main) main.scrollTop = 0
+    window.scrollTo({ top: 0, behavior: 'auto' })
+    document.documentElement.scrollTop = 0
+  }, [conversationId])
 
   useEffect(() => {
     let cancelled = false
@@ -708,17 +1056,39 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
   useEffect(() => {
     let cancelled = false
 
+    const candidates = []
+    if (orgId) candidates.push(orgId)
+    for (const id of fallbackOrgIds) {
+      if (id && !candidates.includes(id)) candidates.push(id)
+    }
+
+    if (candidates.length === 0) {
+      setLoading(true)
+      setError('')
+      return () => { cancelled = true }
+    }
+
     async function fetchConversation() {
       setLoading(true)
       setError('')
 
-      try {
-        const response = await getConversation(conversationId, { orgId })
-        if (!cancelled) setData(response)
-      } catch (err) {
-        if (!cancelled) setError(err.message || 'Failed to load conversation details.')
-      } finally {
-        if (!cancelled) setLoading(false)
+      let lastErr = null
+      for (const candidateOrgId of candidates) {
+        try {
+          const response = await getConversation(conversationId, { orgId: candidateOrgId })
+          if (cancelled) return
+          setData(response)
+          setLoading(false)
+          return
+        } catch (err) {
+          lastErr = err
+          if (err?.status !== 403 && err?.status !== 404) break
+        }
+      }
+
+      if (!cancelled) {
+        setError(lastErr?.message || 'Failed to load conversation details.')
+        setLoading(false)
       }
     }
 
@@ -727,7 +1097,18 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
     return () => {
       cancelled = true
     }
-  }, [conversationId, orgId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, orgId, fallbackOrgIds.join(',')])
+
+  useEffect(() => {
+    let cancelled = false
+    const contactId = data?.contact_id || summary?.contact_id
+    if (!contactId) { setCallProfile(null); return }
+    getContact(contactId)
+      .then((c) => { if (!cancelled) setCallProfile(c?.call_profile || null) })
+      .catch(() => { if (!cancelled) setCallProfile(null) })
+    return () => { cancelled = true }
+  }, [data?.contact_id, summary?.contact_id])
 
   const enrichment = data?._enrichment || {}
   const overview = enrichment.call_overview || {}
@@ -897,11 +1278,11 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
               <div className="flex flex-wrap gap-5 border-b border-slate-100">
                 {[
                   { id: 'overview', label: 'Overview', icon: TrendingUp },
+                  { id: 'callprofile', label: 'Call profile', icon: Sparkles },
                   { id: 'transcript', label: `Transcript (${transcript.length})`, icon: MessageSquare },
                   { id: 'metadata', label: 'Call metadata', icon: Info },
                   { id: 'profile', label: 'User profile', icon: UserCheck },
-                  { id: 'postcall', label: 'Post-call', icon: HeartPulse },
-                  { id: 'actions', label: `Action items (${actions.action_items?.length || 0})`, icon: ListChecks },
+                  { id: 'postcall', label: `Post-call actions (${actions.action_items?.length || 0})`, icon: HeartPulse },
                 ].map((tab) => {
                   const active = tab.id === activeTab
                   const Icon = tab.icon
@@ -1074,9 +1455,56 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
                 </ArticleSection>
               )}
 
+              {activeTab === 'callprofile' && (
+                <ArticleSection title="Call profile" icon={Sparkles}>
+                  {!callProfile ? (
+                    <p className="text-sm text-slate-500">No call profile captured for this contact.</p>
+                  ) : (
+                    <div className="space-y-4 rounded-lg bg-gradient-to-b from-slate-50/40 to-white p-6 ring-1 ring-slate-100">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500">Interested</span>
+                        <span className="font-semibold text-slate-900">{callProfile.interested ? 'Yes' : 'No'}</span>
+                      </div>
+                      {callProfile.lost_reason && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Lost reason</span>
+                          <span className="font-semibold text-slate-900">{callProfile.lost_reason}</span>
+                        </div>
+                      )}
+                      {callProfile.interested_programs?.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Programs interested</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {callProfile.interested_programs.map((p) => (
+                              <span key={p} className="rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">{p}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {callProfile.exam_scores?.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Exam scores</p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {callProfile.exam_scores.map((e, idx) => (
+                              <div key={idx} className="rounded-md bg-slate-50 p-3 text-xs ring-1 ring-slate-100">
+                                <p className="mb-2 font-semibold text-slate-800">{e.exam}</p>
+                                <div className="flex gap-4 text-slate-500">
+                                  <div>Score: <span className="font-semibold text-slate-700">{e.score}</span></div>
+                                  <div>Rank: <span className="font-semibold text-slate-700">{e.rank}</span></div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </ArticleSection>
+              )}
+
               {activeTab === 'postcall' && (
                 <ArticleSection title="Post-call actions" icon={HeartPulse}>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="grid gap-2 sm:grid-cols-3">
                       <SignalCheck label="Callback requested" value={actions.callback_requested} good />
                       <SignalCheck label="Transfer attempted" value={actions.transfer_attempted} good />
@@ -1102,31 +1530,32 @@ function ConversationDetail({ conversationId, summary, orgId, onBack }) {
                         </ul>
                       </div>
                     )}
-                  </div>
-                </ArticleSection>
-              )}
 
-              {activeTab === 'actions' && (
-                <ArticleSection title={`Action items (${actions.action_items?.length || 0})`} icon={ListChecks}>
-                  {!actions.action_items?.length ? (
-                    <p className="text-sm text-slate-500">No action items captured for this conversation.</p>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {actions.action_items.map((item, index) => {
-                        const task = typeof item === 'string' ? item : item.task
-                        const owner = typeof item === 'string' ? '' : item.owner
-                        const due = typeof item === 'string' ? '' : item.due
-                        return (
-                          <ActionItemCard
-                            key={`${task || 'task'}-${index}`}
-                            task={task}
-                            owner={owner}
-                            due={due}
-                          />
-                        )
-                      })}
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                        Action items ({actions.action_items?.length || 0})
+                      </p>
+                      {!actions.action_items?.length ? (
+                        <p className="mt-2 text-sm text-slate-500">No action items captured for this conversation.</p>
+                      ) : (
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          {actions.action_items.map((item, index) => {
+                            const task = typeof item === 'string' ? item : item.task
+                            const owner = typeof item === 'string' ? '' : item.owner
+                            const due = typeof item === 'string' ? '' : item.due
+                            return (
+                              <ActionItemCard
+                                key={`${task || 'task'}-${index}`}
+                                task={task}
+                                owner={owner}
+                                due={due}
+                              />
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </ArticleSection>
               )}
             </div>
@@ -1279,6 +1708,7 @@ export default function ConversationsPage() {
     const total = items.length
     const success = items.filter((item) => item.business_outcome === 'SUCCESS').length
     const highPriority = items.filter((item) => item.priority_level === 'HIGH' || item.priority_level === 'URGENT').length
+    const callbacks = items.filter((item) => item.callback_requested).length
     const scores = items.map((item) => getScoreValue(item.overall_call_score)).filter((value) => value != null)
     const averageScore = scores.length
       ? (scores.reduce((sum, value) => sum + value, 0) / scores.length).toFixed(1)
@@ -1287,12 +1717,82 @@ export default function ConversationsPage() {
       ? Math.round(items.reduce((sum, item) => sum + (item.call_duration_secs || 0), 0) / total)
       : null
 
+    const outcomeCounts = { SUCCESS: 0, PARTIAL: 0, FAILURE: 0, NONE: 0 }
+    for (const item of items) {
+      const k = item.business_outcome
+      if (k === 'SUCCESS' || k === 'PARTIAL' || k === 'FAILURE') outcomeCounts[k] += 1
+      else outcomeCounts.NONE += 1
+    }
+
+    const bucketDefs = [
+      { label: '0–2', min: 0, max: 2, color: '#f43f5e' },
+      { label: '2–4', min: 2, max: 4, color: '#fb7185' },
+      { label: '4–6', min: 4, max: 6, color: '#f59e0b' },
+      { label: '6–8', min: 6, max: 8, color: '#0ea5e9' },
+      { label: '8–10', min: 8, max: 10.0001, color: '#10b981' },
+    ]
+    const scoreBuckets = bucketDefs.map((b) => ({
+      ...b,
+      count: scores.filter((s) => s >= b.min && s < b.max).length,
+    }))
+
+    const moodColorMap = {
+      POSITIVE: '#10b981',
+      NEUTRAL: '#94a3b8',
+      CONFUSED: '#f59e0b',
+      FRUSTRATED: '#f43f5e',
+      AGGRESSIVE: '#dc2626',
+    }
+    const moodCounts = {}
+    for (const item of items) {
+      const m = item.dominant_mood
+      if (!m) continue
+      moodCounts[m] = (moodCounts[m] || 0) + 1
+    }
+    const moodBreakdown = Object.entries(moodCounts)
+      .map(([mood, count]) => ({
+        mood,
+        count,
+        label: MOOD_META[mood]?.label || mood,
+        color: moodColorMap[mood] || '#94a3b8',
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    const dayCount = 7
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const series = Array.from({ length: dayCount }, (_, i) => {
+      const d = new Date(today)
+      d.setDate(today.getDate() - (dayCount - 1 - i))
+      return {
+        key: d.toISOString().slice(0, 10),
+        date: d,
+        label: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        short: d.toLocaleDateString('en-IN', { weekday: 'short' }).slice(0, 1),
+        count: 0,
+      }
+    })
+    const indexByKey = Object.fromEntries(series.map((p, i) => [p.key, i]))
+    for (const item of items) {
+      if (!item.processed_at) continue
+      const d = new Date(item.processed_at)
+      if (Number.isNaN(d.getTime())) continue
+      const k = d.toISOString().slice(0, 10)
+      if (k in indexByKey) series[indexByKey[k]].count += 1
+    }
+
     return {
       total,
+      success,
       successRate: total ? Math.round((success / total) * 100) : 0,
       averageScore,
       averageDuration,
       highPriority,
+      callbacks,
+      outcomeCounts,
+      scoreBuckets,
+      moodBreakdown,
+      daySeries: series,
     }
   }, [items])
 
@@ -1358,6 +1858,7 @@ export default function ConversationsPage() {
             conversationId={selectedSummary.conversation_id}
             summary={selectedSummary}
             orgId={selectedSummary.org_id || effectiveOrgId}
+            fallbackOrgIds={isSuperAdmin ? orgs.map((o) => o.org_id).filter(Boolean) : []}
             onBack={clearConversation}
           />
         ) : (
@@ -1460,41 +1961,68 @@ export default function ConversationsPage() {
               </Surface>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Success rate</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">{stats.successRate}%</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <KpiCard
+                icon={MessageSquare}
+                accent="indigo"
+                label="Total calls"
+                value={stats.total}
+                sub={searchTerm ? `Search: "${searchTerm}"` : 'In current view'}
+              />
+              <KpiCard
+                icon={TrendingUp}
+                accent="emerald"
+                label="Success rate"
+                value={`${stats.successRate}%`}
+                sub={`${stats.success} of ${stats.total}`}
+              />
+              <KpiCard
+                icon={Sparkles}
+                accent="amber"
+                label="Average score"
+                value={stats.averageScore}
+                sub="Out of 10"
+              />
+              <KpiCard
+                icon={Clock}
+                accent="sky"
+                label="Avg duration"
+                value={formatDuration(stats.averageDuration)}
+                sub="Per call"
+              />
+              <KpiCard
+                icon={PhoneForwarded}
+                accent="rose"
+                label="Callbacks"
+                value={stats.callbacks}
+                sub={`${stats.highPriority} high priority`}
+              />
+            </div>
 
-              <div className="flex items-center gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                  <Sparkles size={20} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Average score</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">{stats.averageScore}</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <ChartCard
+                title="Outcome breakdown"
+                subtitle="How calls are landing"
+                icon={ListChecks}
+              >
+                <OutcomeDonut counts={stats.outcomeCounts} total={stats.total} />
+              </ChartCard>
 
-              <div className="relative flex items-center gap-4 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
-                  <Clock size={20} />
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">Average duration</p>
-                  <p className="mt-1 text-2xl font-bold text-slate-900">{formatDuration(stats.averageDuration)}</p>
-                </div>
-                {searchTerm && (
-                  <div className="absolute top-4 right-4">
-                    <Pill tone="slate">Search: {searchTerm}</Pill>
-                  </div>
-                )}
-              </div>
+              <ChartCard
+                title="Score distribution"
+                subtitle="Overall call score buckets"
+                icon={Gauge}
+              >
+                <ScoreHistogram buckets={stats.scoreBuckets} />
+              </ChartCard>
+
+              <ChartCard
+                title="Caller mood"
+                subtitle="Dominant mood across calls"
+                icon={Smile}
+              >
+                <MoodBars entries={stats.moodBreakdown} total={stats.total} />
+              </ChartCard>
             </div>
 
             {error && (

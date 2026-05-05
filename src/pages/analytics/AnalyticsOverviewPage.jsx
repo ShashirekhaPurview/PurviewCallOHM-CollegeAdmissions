@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Clock,
   Copy,
+  HeartPulse,
   MessageSquare,
+  PhoneForwarded,
   RefreshCw,
   Sparkles,
 } from 'lucide-react'
@@ -203,33 +205,200 @@ function MetricCard({ label, value, icon: Icon, tone }) {
   )
 }
 
-function DistributionList({ items, emptyLabel = 'No data available yet.' }) {
+const TONE_HEX = {
+  green:  '#10b981',
+  emerald:'#10b981',
+  amber:  '#f59e0b',
+  red:    '#f43f5e',
+  rose:   '#f43f5e',
+  blue:   '#0ea5e9',
+  sky:    '#0ea5e9',
+  slate:  '#94a3b8',
+  indigo: '#6366f1',
+  violet: '#8b5cf6',
+}
+
+function colorForItem(item, fallbackIdx = 0) {
+  const palette = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9', '#8b5cf6', '#94a3b8']
+  return TONE_HEX[item.style?.tone] || palette[fallbackIdx % palette.length]
+}
+
+function DistributionVisual({ items, emptyLabel = 'No data available yet.' }) {
   if (!items.length) {
-    return <p className="text-sm text-slate-500">{emptyLabel}</p>
+    return (
+      <div className="flex h-48 items-center justify-center rounded-2xl bg-slate-50 text-sm text-slate-500">
+        {emptyLabel}
+      </div>
+    )
   }
 
-  const maxCount = Math.max(...items.map((item) => item.count), 1)
+  const total = items.reduce((sum, item) => sum + item.count, 0) || 1
+  const top = items[0]
+  const topColor = colorForItem(top, 0)
+
+  const size = 180
+  const stroke = 24
+  const r = (size - stroke) / 2
+  const circ = 2 * Math.PI * r
+  let cursor = 0
+
+  return (
+    <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
+      <div className="relative shrink-0 mx-auto lg:mx-0" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} stroke="#f1f5f9" strokeWidth={stroke} fill="none" />
+          {items.map((item, idx) => {
+            const len = (item.count / total) * circ
+            if (len <= 0) return null
+            const dash = `${Math.max(0, len - 2)} ${circ - Math.max(0, len - 2)}`
+            const off = -cursor
+            cursor += len
+            return (
+              <circle
+                key={item.value}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                stroke={colorForItem(item, idx)}
+                strokeWidth={stroke}
+                strokeLinecap="butt"
+                strokeDasharray={dash}
+                strokeDashoffset={off}
+                fill="none"
+              />
+            )
+          })}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Top</span>
+          <span className="text-base font-bold text-slate-900">{top.style?.label || top.value}</span>
+          <span className="text-2xl font-bold leading-none" style={{ color: topColor }}>{top.pct}%</span>
+          <span className="text-[10px] font-medium text-slate-400">of {total}</span>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        {items.map((item, idx) => {
+          const color = colorForItem(item, idx)
+          const sharePct = Math.round((item.count / total) * 100)
+          return (
+            <div
+              key={item.value}
+              className="group rounded-xl bg-slate-50/70 p-3 transition hover:bg-slate-50"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+                  <span className="truncate text-sm font-semibold text-slate-800">
+                    {item.style?.label || item.value}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-2">
+                  <span className="text-sm font-bold text-slate-900">{item.count}</span>
+                  <span className="text-[11px] font-semibold tracking-wide text-slate-400">{sharePct}%</span>
+                </div>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${sharePct}%`,
+                    background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                  }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const LANG_NAMES = {
+  en: 'English', hi: 'Hindi', te: 'Telugu', ta: 'Tamil', kn: 'Kannada',
+  ml: 'Malayalam', mr: 'Marathi', bn: 'Bengali', gu: 'Gujarati', pa: 'Punjabi',
+  ur: 'Urdu', or: 'Odia', as: 'Assamese',
+  es: 'Spanish', fr: 'French', de: 'German', zh: 'Chinese',
+  ja: 'Japanese', ko: 'Korean', ar: 'Arabic', pt: 'Portuguese', ru: 'Russian',
+}
+
+function langLabel(code) {
+  if (!code) return 'Unknown'
+  const key = String(code).toLowerCase()
+  return LANG_NAMES[key] || String(code).toUpperCase()
+}
+
+const LANG_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#0ea5e9', '#f43f5e', '#8b5cf6', '#94a3b8']
+
+function LanguageCoverage({ items, emptyLabel = 'Language tags have not been captured yet.' }) {
+  if (!items.length) {
+    return (
+      <div className="flex h-32 items-center justify-center rounded-2xl bg-white/70 px-4 text-center text-xs text-slate-500 ring-1 ring-slate-200/60">
+        {emptyLabel}
+      </div>
+    )
+  }
+
+  const total = items.reduce((sum, item) => sum + item.count, 0) || 1
+  const top = items[0]
+  const topColor = LANG_PALETTE[0]
+  const topPct = Math.round((top.count / total) * 100)
+  const topCode = (top.value || '?').toString().slice(0, 2).toUpperCase()
 
   return (
     <div className="space-y-4">
-      {items.map((item) => (
-        <div key={item.value}>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <Pill tone={item.style?.tone || 'slate'}>
-              {item.style?.label || item.value}
-            </Pill>
-            <span className="text-xs font-semibold text-slate-600">
-              {item.count} · {item.pct}%
-            </span>
+      <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200/60">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${topColor}, ${topColor}cc)` }}
+          >
+            {topCode}
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-slate-200/70">
-            <div
-              className={`h-full rounded-full ${item.style?.bar || 'bg-slate-400'}`}
-              style={{ width: `${(item.count / maxCount) * 100}%` }}
-            />
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Top language</p>
+            <p className="mt-0.5 truncate text-sm font-bold text-slate-900">{langLabel(top.value)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-bold leading-none" style={{ color: topColor }}>{topPct}%</p>
+            <p className="mt-1 text-[10px] font-medium text-slate-400">{top.count} call{top.count === 1 ? '' : 's'}</p>
           </div>
         </div>
-      ))}
+      </div>
+
+      <div className="flex h-2 overflow-hidden rounded-full bg-slate-200/60 ring-1 ring-white">
+        {items.map((item, idx) => {
+          const w = (item.count / total) * 100
+          if (w <= 0) return null
+          return (
+            <div
+              key={item.value}
+              style={{ width: `${w}%`, background: LANG_PALETTE[idx % LANG_PALETTE.length] }}
+              title={`${langLabel(item.value)}: ${item.count}`}
+            />
+          )
+        })}
+      </div>
+
+      <div className="space-y-2">
+        {items.map((item, idx) => {
+          const color = LANG_PALETTE[idx % LANG_PALETTE.length]
+          const pct = Math.round((item.count / total) * 100)
+          return (
+            <div key={item.value} className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+                <span className="truncate font-semibold text-slate-700">{langLabel(item.value)}</span>
+              </div>
+              <div className="flex shrink-0 items-baseline gap-1.5">
+                <span className="text-sm font-bold text-slate-900">{item.count}</span>
+                <span className="text-[10px] font-semibold text-slate-400">{pct}%</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -237,29 +406,34 @@ function DistributionList({ items, emptyLabel = 'No data available yet.' }) {
 function DistributionTabs({ tabs }) {
   const [active, setActive] = useState(tabs[0]?.id)
   const current = tabs.find((tab) => tab.id === active) || tabs[0]
+  const currentTotal = (current?.items || []).reduce((sum, item) => sum + item.count, 0)
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap gap-5 border-b border-slate-100">
+      <div className="mb-6 flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const isActive = tab.id === active
           return (
             <button
               key={tab.id}
               onClick={() => setActive(tab.id)}
-              className={`-mb-px border-b-2 px-1 py-3 text-xs font-semibold uppercase tracking-[0.16em] transition ${
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                 isActive
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-slate-400 hover:text-slate-700'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
               }`}
             >
               {tab.label}
-              <span className="ml-1.5 text-slate-400">{tab.count}</span>
             </button>
           )
         })}
+        {currentTotal > 0 && (
+          <span className="ml-auto self-center text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+            {currentTotal} call{currentTotal === 1 ? '' : 's'}
+          </span>
+        )}
       </div>
-      <DistributionList items={current.items} emptyLabel={current.emptyLabel} />
+      <DistributionVisual items={current.items} emptyLabel={current.emptyLabel} />
     </div>
   )
 }
@@ -301,33 +475,91 @@ function SentimentChart({ points }) {
   }
 
   const maxScore = 10
-  return (
-    <div className="grid gap-3 sm:grid-cols-4">
-      {points.map((point) => {
-        const score = Number(point.avg_score) || 0
-        const pct = Math.max(0, Math.min(100, (score / maxScore) * 100))
-        const topMood = Object.entries(point.mood_distribution || {})
-          .sort(([, a], [, b]) => (b?.count ?? 0) - (a?.count ?? 0))[0]
-        const moodLabel = topMood ? MOOD_STYLES[topMood[0]]?.label || topMood[0] : 'No data'
+  const W = 720
+  const H = 260
+  const padL = 36
+  const padR = 16
+  const padT = 16
+  const padB = 40
+  const innerW = W - padL - padR
+  const innerH = H - padT - padB
 
-        return (
-          <div key={point.label} className="rounded-2xl bg-slate-50 px-4 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-              {point.label}
-            </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">
-              {score ? score.toFixed(1) : '-'}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">{moodLabel}</p>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200/70">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-violet-300"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        )
-      })}
+  const enriched = points.map((p) => {
+    const score = Number(p.avg_score) || 0
+    const topMood = Object.entries(p.mood_distribution || {})
+      .sort(([, a], [, b]) => (b?.count ?? 0) - (a?.count ?? 0))[0]
+    const moodKey = topMood?.[0]
+    return {
+      label: p.label,
+      score,
+      hasScore: p.avg_score != null,
+      moodLabel: moodKey ? MOOD_STYLES[moodKey]?.label || moodKey : 'No data',
+    }
+  })
+
+  const stepX = enriched.length > 1 ? innerW / (enriched.length - 1) : 0
+  const xAt = (i) => padL + (enriched.length === 1 ? innerW / 2 : i * stepX)
+  const yAt = (score) => padT + innerH - (Math.max(0, Math.min(maxScore, score)) / maxScore) * innerH
+
+  const linePath = enriched
+    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(2)} ${yAt(d.score).toFixed(2)}`)
+    .join(' ')
+
+  const areaPath = enriched.length
+    ? `${linePath} L ${xAt(enriched.length - 1).toFixed(2)} ${(padT + innerH).toFixed(2)} L ${xAt(0).toFixed(2)} ${(padT + innerH).toFixed(2)} Z`
+    : ''
+
+  const yTicks = [0, 2.5, 5, 7.5, 10]
+
+  return (
+    <div className="w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Sentiment over time">
+        <defs>
+          <linearGradient id="sentArea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+          </linearGradient>
+          <linearGradient id="sentLine" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="60%" stopColor="#0ea5e9" />
+            <stop offset="100%" stopColor="#a78bfa" />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map((t) => {
+          const y = yAt(t)
+          return (
+            <g key={t}>
+              <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="3 4" />
+              <text x={padL - 8} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{t}</text>
+            </g>
+          )
+        })}
+
+        {areaPath && <path d={areaPath} fill="url(#sentArea)" />}
+        {linePath && <path d={linePath} fill="none" stroke="url(#sentLine)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+
+        {enriched.map((d, i) => {
+          const cx = xAt(i)
+          const cy = yAt(d.score)
+          return (
+            <g key={d.label}>
+              <circle cx={cx} cy={cy} r="5" fill="#fff" stroke="#6366f1" strokeWidth="2.5" />
+              {d.hasScore && (
+                <text x={cx} y={cy - 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="#0f172a">
+                  {d.score.toFixed(1)}
+                </text>
+              )}
+              <text x={cx} y={H - 18} textAnchor="middle" fontSize="10" fontWeight="700" fill="#94a3b8" letterSpacing="1.6">
+                {d.label.toUpperCase()}
+              </text>
+              <text x={cx} y={H - 4} textAnchor="middle" fontSize="10" fill="#64748b">
+                {d.moodLabel}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
     </div>
   )
 }
@@ -643,61 +875,56 @@ export default function AnalyticsPage() {
         ) : (
           <>
             <Surface className="p-8">
-              <div className="grid gap-10 xl:grid-cols-[minmax(0,1.15fr)_340px]">
-                <div>
-                  <div className="mb-6">
-                    <p className="text-sm font-semibold text-slate-900">Sentiment over time</p>
-                    <p className="mt-1 text-sm text-slate-500">Quartile-by-quartile sentiment scoring across the call lifecycle.</p>
-                  </div>
-                  <SentimentChart points={sentimentPoints} />
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-slate-900">Sentiment over time</p>
+                <p className="mt-1 text-sm text-slate-500">Quartile-by-quartile sentiment scoring across the call lifecycle.</p>
+              </div>
+              <SentimentChart points={sentimentPoints} />
 
-                  <div className="mt-10">
-                    <p className="text-sm font-semibold text-slate-900">Agent performance</p>
-                    <p className="mt-1 text-sm text-slate-500">Aggregate agent quality scores out of 10.</p>
-                    <div className="mt-5 grid gap-5 sm:grid-cols-2">
-                      <GaugeRow label="Compliance" score={performance.avg_compliance} />
-                      <GaugeRow label="Empathy" score={performance.avg_empathy} />
-                      <GaugeRow label="Listening" score={performance.avg_listening} />
-                      <GaugeRow label="Clarity" score={performance.avg_clarity} />
-                    </div>
+              <div className="mt-10 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-[28px] bg-[#f7f8fc] px-6 py-6">
+                  <p className="text-sm font-semibold text-slate-900">Agent performance</p>
+                  <p className="mt-1 text-sm text-slate-500">Aggregate agent quality scores out of 10.</p>
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                    <GaugeRow label="Compliance" score={performance.avg_compliance} />
+                    <GaugeRow label="Empathy" score={performance.avg_empathy} />
+                    <GaugeRow label="Listening" score={performance.avg_listening} />
+                    <GaugeRow label="Clarity" score={performance.avg_clarity} />
                   </div>
                 </div>
 
                 <div className="rounded-[28px] bg-[#f7f8fc] px-6 py-6">
-                  <div className="mb-4">
-                    <p className="text-sm font-semibold text-slate-900">Scorecard</p>
-                    <p className="mt-1 text-sm text-slate-500">Aggregate scores for the selected window.</p>
-                  </div>
-
-                  <div className="space-y-4">
+                  <p className="text-sm font-semibold text-slate-900">Scorecard</p>
+                  <p className="mt-1 text-sm text-slate-500">Aggregate scores for the selected window.</p>
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2">
                     <GaugeRow label="Overall score" score={analytics?.scores?.avg_overall} />
                     <GaugeRow label="Agent score" score={analytics?.scores?.avg_agent} />
                     <GaugeRow label="User score" score={analytics?.scores?.avg_user} />
                   </div>
-
-                  <div className="mt-8">
-                    <p className="text-sm font-semibold text-slate-900">Latency</p>
-                    <p className="mt-1 text-sm text-slate-500">Average response timing across the conversations.</p>
-                    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">LLM TTFB</dt>
-                        <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_llm_ttfb_ms)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">TTS TTFB</dt>
-                        <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_tts_ttfb_ms)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">ASR latency</dt>
-                        <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_asr_latency_ms)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avg duration</dt>
-                        <dd className="mt-1 text-sm font-semibold text-slate-900">{formatDuration(latency.avg_call_duration_secs)}</dd>
-                      </div>
-                    </dl>
-                  </div>
                 </div>
+              </div>
+
+              <div className="mt-8 rounded-[28px] bg-[#f7f8fc] px-6 py-6">
+                <p className="text-sm font-semibold text-slate-900">Latency</p>
+                <p className="mt-1 text-sm text-slate-500">Average response timing across the conversations.</p>
+                <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">LLM TTFB</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_llm_ttfb_ms)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">TTS TTFB</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_tts_ttfb_ms)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">ASR latency</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatMs(latency.avg_asr_latency_ms)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avg duration</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatDuration(latency.avg_call_duration_secs)}</dd>
+                  </div>
+                </dl>
               </div>
             </Surface>
 
@@ -727,7 +954,7 @@ export default function AnalyticsPage() {
                       <p className="mt-1 text-sm text-slate-500">Top detected languages in this range.</p>
                     </div>
                     <div className="mt-5">
-                      <DistributionList items={languageDistribution} emptyLabel="Language tags have not been captured yet." />
+                      <LanguageCoverage items={languageDistribution} />
                     </div>
 
                     <div className="mt-8">
@@ -838,78 +1065,84 @@ export default function AnalyticsPage() {
                   </Link>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="-mx-6 overflow-x-auto sm:-mx-8">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50/80 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
                       <tr>
-                        <th className="px-4 py-3">Processed</th>
-                        <th className="px-4 py-3">Conversation ID</th>
-                        <th className="px-4 py-3">Priority</th>
-                        <th className="px-4 py-3">Callback</th>
-                        <th className="px-4 py-3">Transfer</th>
-                        <th className="px-4 py-3">Action items</th>
-                        <th className="px-4 py-3 text-right">Action</th>
+                        <th className="px-6 py-3 sm:px-8">Processed</th>
+                        <th className="px-6 py-3">Conversation</th>
+                        <th className="px-6 py-3">Priority</th>
+                        <th className="px-6 py-3">Callback</th>
+                        <th className="px-6 py-3">Callback Time</th>
+                        <th className="px-6 py-3 text-right sm:px-8">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {actionsTable.slice(0, 12).map((row) => (
-                        <tr key={row.conversation_id} className="transition hover:bg-slate-50/70">
-                          <td className="px-4 py-4 text-xs text-slate-500">
-                            {formatDateTime(row.processed_at)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="max-w-[180px] truncate font-mono text-[11px] text-slate-500">
-                                {row.conversation_id}
-                              </span>
-                              <button
-                                onClick={() => handleCopyId(row.conversation_id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition hover:text-slate-700"
-                                title="Copy conversation ID"
-                              >
-                                {copiedId === row.conversation_id ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <Pill tone={PRIORITY_STYLES[row.priority_level]?.tone || 'slate'}>
-                              {PRIORITY_STYLES[row.priority_level]?.label || row.priority_level || '-'}
-                            </Pill>
-                          </td>
-                          <td className="px-4 py-4 text-xs text-slate-600">
-                            {row.callback_requested
-                              ? (row.callback_time_utc ? formatDateTime(row.callback_time_utc) : 'Yes')
-                              : '-'}
-                          </td>
-                          <td className="px-4 py-4">
-                            {row.transfer_attempted ? (
-                              <Pill tone={row.transfer_succeeded ? 'green' : 'amber'}>
-                                {row.transfer_succeeded ? 'Succeeded' : 'Attempted'}
-                              </Pill>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 text-xs text-slate-600">
-                            {row.action_items?.length || 0}
-                          </td>
-                          <td className="px-4 py-4 text-right">
-                            <Link
-                              to={`/app/conversations?conversation=${row.conversation_id}`}
-                              className="inline-flex items-center gap-2 rounded-md bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-200 hover:text-slate-900"
-                            >
-                              Review
-                              <ChevronRight size={14} />
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                      {actionsTable.length === 0 && (
+                      {actionsTable.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
-                            No post-call actions in this range.
+                          <td colSpan={6} className="px-6 py-20 text-center sm:px-8">
+                            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-100">
+                              <HeartPulse size={20} className="text-slate-400" />
+                            </div>
+                            <p className="mt-4 text-base font-semibold text-slate-900">No post-call actions in this range</p>
+                            <p className="mt-1 text-sm text-slate-500">Successfully closed calls won't appear here.</p>
                           </td>
                         </tr>
+                      ) : (
+                        actionsTable.slice(0, 12).map((row) => (
+                          <tr
+                            key={row.conversation_id}
+                            onClick={() => { window.location.href = `/app/conversations?conversation=${row.conversation_id}` }}
+                            className="cursor-pointer transition hover:bg-slate-50/70"
+                          >
+                            <td className="px-6 py-5 align-top text-xs text-slate-500 whitespace-nowrap sm:px-8">
+                              {formatDateTime(row.processed_at)}
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              <div className="flex items-center gap-1.5">
+                                <span className="max-w-[180px] truncate font-mono text-[11px] text-slate-400" title={row.conversation_id}>
+                                  {row.conversation_id}
+                                </span>
+                                <button
+                                  onClick={(event) => { event.stopPropagation(); handleCopyId(row.conversation_id) }}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                  title="Copy conversation ID"
+                                >
+                                  {copiedId === row.conversation_id
+                                    ? <Check size={12} className="text-emerald-600" />
+                                    : <Copy size={12} />}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              <Pill tone={PRIORITY_STYLES[row.priority_level]?.tone || 'slate'}>
+                                {PRIORITY_STYLES[row.priority_level]?.label || row.priority_level || 'Review'}
+                              </Pill>
+                            </td>
+                            <td className="px-6 py-5 align-top">
+                              {row.callback_requested ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700">
+                                  <PhoneForwarded size={11} /> Yes
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">No</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-5 align-top text-xs text-slate-500 whitespace-nowrap">
+                              {row.callback_time_utc ? formatDateTime(row.callback_time_utc) : '-'}
+                            </td>
+                            <td className="px-6 py-5 text-right align-top sm:px-8">
+                              <Link
+                                to={`/app/conversations?conversation=${row.conversation_id}`}
+                                onClick={(event) => event.stopPropagation()}
+                                className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:text-slate-900"
+                              >
+                                Review
+                                <ChevronRight size={14} />
+                              </Link>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>

@@ -21,8 +21,6 @@ const STATUS_META = {
   enrolled: { label: 'Enrolled', bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
   dropped: { label: 'Dropped', bg: '#FEF2F2', fg: '#991B1B', dot: '#EF4444' },
 }
-const STATUS_OPTIONS = Object.keys(STATUS_META)
-
 const niceLabel = (v) => v ? v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '-'
 
 const PALETTE = [
@@ -92,21 +90,6 @@ function StatusPill({ status }) {
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.dot }} />
       {m.label}
     </span>
-  )
-}
-
-function FilterSelect({ value, onChange, placeholder, options }) {
-  return (
-    <div className="relative">
-      <select
-        value={value} onChange={(e) => onChange(e.target.value)}
-        className="appearance-none rounded-md border border-gray-200 bg-white px-4 py-2.5 pr-10 text-sm text-gray-700 shadow-sm outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((o) => <option key={o} value={o}>{niceLabel(o)}</option>)}
-      </select>
-      <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-    </div>
   )
 }
 
@@ -296,7 +279,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter] = useState('new')
   const [orgName, setOrgName] = useState('')
   const [toast, setToast] = useState(null)
 
@@ -403,7 +386,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
     if (ids.length === 0) return
     setCalling(true)
     try {
-      const data = await bulkCallContacts(ids)
+      const data = await bulkCallContacts(ids, isSuper ? orgId : undefined)
       setResults(data)
       setConfirmOpen(false)
       const ok = data.succeeded ?? 0
@@ -518,7 +501,6 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
               <button onClick={() => setSearch('')} className="text-gray-300 transition hover:text-gray-500"><X size={13} /></button>
             )}
           </div>
-          <FilterSelect value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" options={STATUS_OPTIONS} />
           <span className="text-xs font-medium text-gray-400">{filtered.length} shown</span>
         </div>
 
@@ -549,10 +531,10 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
                 <PhoneCall size={20} className="text-gray-300" />
               </div>
               <p className="text-base font-semibold text-gray-800">
-                {search || statusFilter ? 'No contacts match your filters' : 'No contacts available'}
+                {search ? 'No contacts match your search' : 'No new contacts to call'}
               </p>
               <p className="mt-1 text-sm text-gray-400">
-                {search || statusFilter ? 'Try clearing search or filters' : 'Add contacts first to start calling.'}
+                {search ? 'Try clearing your search.' : 'Only contacts with status "new" can be called.'}
               </p>
             </div>
           ) : (

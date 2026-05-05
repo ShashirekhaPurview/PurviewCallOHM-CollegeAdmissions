@@ -35,22 +35,22 @@ const C = {
 function getNav(role) {
   if (role === 'super_admin') {
     return [
+      { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
       { label: 'Organizations', icon: Building2, href: '/app/organizations' },
       { label: 'Contacts', icon: Users, href: '/app/contacts' },
       { label: 'Calls', icon: Phone, href: '/app/calls' },
       { label: 'Conversations', icon: MessageSquare, href: '/app/conversations' },
-      { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
     ]
   }
 
   const base = [
+    { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
     { label: 'Contacts', icon: Users, href: '/app/contacts' },
     { label: 'Calls', icon: Phone, href: '/app/calls' },
     { label: 'Conversations', icon: MessageSquare, href: '/app/conversations' },
-    { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
   ]
   if (role === 'org_admin') {
-    base.unshift({ label: 'Users', icon: UserCog, href: '/app/users' })
+    base.splice(1, 0, { label: 'Users', icon: UserCog, href: '/app/users' })
   }
   return base
 }
