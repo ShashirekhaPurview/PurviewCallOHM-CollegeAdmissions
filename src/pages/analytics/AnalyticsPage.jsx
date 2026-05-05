@@ -448,7 +448,7 @@ const SCORE_BUCKET_NAMES = ['Poor', 'Fair', 'OK', 'Good', 'Great']
 
 function ScoreHistogram({ buckets }) {
   const [hovered, setHovered] = useState(null)
-  const max = Math.max(1, ...buckets.map((b) => b.count))
+  const max = Math.max(2, ...buckets.map((b) => b.count))
   const totalScored = buckets.reduce((sum, b) => sum + b.count, 0)
   const hoveredBucket = hovered != null ? buckets[hovered] : null
   const hoveredName = hovered != null ? SCORE_BUCKET_NAMES[hovered] : null
@@ -467,8 +467,8 @@ function ScoreHistogram({ buckets }) {
 
       <div className="relative flex gap-3">
         <div className="flex h-32 flex-col justify-between text-right text-[9px] font-semibold text-slate-300">
-          {yAxisTicks.map((t) => (
-            <span key={t}>{t}</span>
+          {yAxisTicks.map((t, i) => (
+            <span key={i}>{t}</span>
           ))}
         </div>
 
@@ -487,7 +487,7 @@ function ScoreHistogram({ buckets }) {
               return (
                 <div
                   key={b.label}
-                  className="relative flex flex-1 cursor-pointer flex-col items-center"
+                  className="relative flex h-full flex-1 cursor-pointer flex-col items-center"
                   onMouseEnter={() => setHovered(i)}
                   onMouseLeave={() => setHovered(null)}
                   title={`${SCORE_BUCKET_NAMES[i]} (score ${b.label}): ${b.count} call${b.count === 1 ? '' : 's'}`}
