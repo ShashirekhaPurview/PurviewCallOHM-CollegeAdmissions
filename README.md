@@ -1,3 +1,8 @@
+
+
+git repo for this project -
+https://github.com/ShashirekhaPurview/PurviewCallOHM-CollegeAdmissions.git
+
 for building and deploying a project
 1. login to the firebase account - (purview2026@gmail.com) 
 logout from the existing account using the command - firebase logout 

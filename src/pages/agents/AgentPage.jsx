@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  AlertCircle, BookOpen, Bot, Check, ChevronDown, File, FileText, Link2,
-  Loader2, Mic2, Pause, Play, RefreshCw, Save, Search, Settings2, Sparkles, Upload, Variable, X,
+  AlertCircle, BookOpen, Bot, Check, ChevronDown, Edit3, File, FileText, Link2,
+  Loader2, Maximize2, Mic2, Pause, Play, RefreshCw, Save, Search, Settings2, Sparkles, Upload, Variable, X,
 } from 'lucide-react'
 import {
   createKnowledgeBaseFromFile,
@@ -16,6 +16,16 @@ import {
   updateAgent,
 } from '../../api/agents/agentConsoleService'
 import { getCurrentUserAgentContext } from '../../api/agents/orgScopedAgentService'
+import AgentPreviewModal from './AgentPreviewModal'
+
+const VISIBLE_DYNAMIC_VARIABLES = [
+  'branches_offered',
+  'gpa_thresholds',
+  'scholarship_score',
+  'campus_facilities',
+  'housing_policy',
+  'extracurricular_activities',
+]
 
 const LANGUAGES = [
   { id: 'en', name: 'English' },
@@ -134,22 +144,24 @@ function FieldLabel({ children }) {
   return <label className="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-500">{children}</label>
 }
 
-function SectionCard({ icon: Icon, title, description, actions, children }) {
+function SectionCard({ icon: Icon, title, description, actions, children, className = '', bodyClassName = '' }) {
   return (
-    <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
-        <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-            <Icon size={18} />
-          </div>
+    <section className={cn('rounded-md border border-gray-200 bg-white', className)}>
+      <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-3.5">
+        <div className="flex items-center gap-2.5">
+          {Icon ? (
+            <div className="flex h-7 w-7 items-center justify-center rounded text-indigo-600">
+              <Icon size={15} />
+            </div>
+          ) : null}
           <div>
-            <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-            {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+            <h2 className="text-[13px] font-semibold tracking-tight text-gray-900">{title}</h2>
+            {description && <p className="mt-0.5 text-[11.5px] leading-relaxed text-gray-500">{description}</p>}
           </div>
         </div>
         {actions}
       </div>
-      <div className="px-6 py-6">{children}</div>
+      <div className={cn('px-5 py-5', bodyClassName)}>{children}</div>
     </section>
   )
 }
@@ -415,7 +427,7 @@ function VoiceSelectorModal({ open, currentVoiceId, onClose, onSelect }) {
     }
     audioRef.current.pause()
     audioRef.current.src = voice.preview_url
-    audioRef.current.play().catch(() => {})
+    audioRef.current.play().catch(() => { })
     audioRef.current.onended = () => setPlayingId('')
     setPlayingId(voice.voice_id)
   }
@@ -430,105 +442,105 @@ function VoiceSelectorModal({ open, currentVoiceId, onClose, onSelect }) {
       max="max-w-3xl"
     >
       <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 border-b border-gray-100 px-4 py-3">
-            <div className="flex flex-wrap gap-1.5">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'rounded-full px-3 py-1.5 text-xs font-semibold transition',
-                    activeTab === tab.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-              <Search size={13} className="text-gray-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search voices..."
-                className="w-full bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
-              />
-            </div>
+        <div className="shrink-0 border-b border-gray-100 px-4 py-3">
+          <div className="flex flex-wrap gap-1.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded-full px-3 py-1.5 text-xs font-semibold transition',
+                  activeTab === tab.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <div
-            className="min-h-0 flex-1 overflow-y-auto p-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-500">
-                <Loader2 size={20} className="mr-2 animate-spin" /> Loading voices...
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <Search size={13} className="text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search voices..."
+              className="w-full bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
+            />
+          </div>
+        </div>
+        <div
+          className="min-h-0 flex-1 overflow-y-auto p-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-500">
+              <Loader2 size={20} className="mr-2 animate-spin" /> Loading voices...
+            </div>
+          ) : voices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-gray-300">
+                <Mic2 size={22} />
               </div>
-            ) : voices.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-gray-300">
-                  <Mic2 size={22} />
-                </div>
-                <p className="mt-4 text-base font-semibold text-gray-700">No voices found</p>
-                <p className="mt-1 text-sm text-gray-400">Try a different search or voice tab.</p>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {voices.map((voice) => {
-                  const selected = selectedVoice?.voice_id === voice.voice_id
-                  const active = currentVoiceId === voice.voice_id
-                  return (
-                    <button
-                      key={voice.voice_id}
-                      type="button"
-                      onClick={() => setSelectedVoice(voice)}
-                      className={cn(
-                        'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
-                        selected ? 'border-indigo-300 bg-indigo-50/70' : 'border-gray-200 bg-white hover:bg-gray-50',
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-xs font-semibold text-gray-900">{voice.name}</p>
-                          {active ? (
-                            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
-                              Current
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 truncate text-[11px] text-gray-400">
-                          {voice.category || voice.description || voice.labels?.accent || voice.voice_id}
-                        </p>
+              <p className="mt-4 text-base font-semibold text-gray-700">No voices found</p>
+              <p className="mt-1 text-sm text-gray-400">Try a different search or voice tab.</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {voices.map((voice) => {
+                const selected = selectedVoice?.voice_id === voice.voice_id
+                const active = currentVoiceId === voice.voice_id
+                return (
+                  <button
+                    key={voice.voice_id}
+                    type="button"
+                    onClick={() => setSelectedVoice(voice)}
+                    className={cn(
+                      'flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition',
+                      selected ? 'border-indigo-300 bg-indigo-50/70' : 'border-gray-200 bg-white hover:bg-gray-50',
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-xs font-semibold text-gray-900">{voice.name}</p>
+                        {active ? (
+                          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700">
+                            Current
+                          </span>
+                        ) : null}
                       </div>
-                      <span className="group/preview relative">
-                        <button
-                          type="button"
-                          aria-label={playingId === voice.voice_id ? 'Stop preview' : 'Play preview'}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            togglePreview(voice)
-                          }}
-                          className={cn(
-                            'flex h-7 w-7 items-center justify-center rounded-full border transition',
-                            playingId === voice.voice_id
-                              ? 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-500'
-                              : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600',
-                          )}
-                        >
-                          {playingId === voice.voice_id ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
-                        </button>
-                        <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition group-hover/preview:opacity-100">
-                          {playingId === voice.voice_id ? 'Stop preview' : 'Preview voice'}
-                        </span>
+                      <p className="mt-0.5 truncate text-[11px] text-gray-400">
+                        {voice.category || voice.description || voice.labels?.accent || voice.voice_id}
+                      </p>
+                    </div>
+                    <span className="group/preview relative">
+                      <button
+                        type="button"
+                        aria-label={playingId === voice.voice_id ? 'Stop preview' : 'Play preview'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          togglePreview(voice)
+                        }}
+                        className={cn(
+                          'flex h-7 w-7 items-center justify-center rounded-full border transition',
+                          playingId === voice.voice_id
+                            ? 'border-indigo-200 bg-indigo-600 text-white hover:bg-indigo-500'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600',
+                        )}
+                      >
+                        {playingId === voice.voice_id ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
+                      </button>
+                      <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-lg transition group-hover/preview:opacity-100">
+                        {playingId === voice.voice_id ? 'Stop preview' : 'Preview voice'}
                       </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="shrink-0 border-t border-gray-100 px-5 py-3">
           <button
@@ -542,6 +554,64 @@ function VoiceSelectorModal({ open, currentVoiceId, onClose, onSelect }) {
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check size={15} /> {selectedVoice ? `Use ${selectedVoice.name}` : 'Use this voice'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function EditPromptModal({ open, value, onChange, onClose, llm }) {
+  const [draft, setDraft] = useState(value || '')
+
+  useEffect(() => {
+    if (open) setDraft(value || '')
+  }, [open, value])
+
+  const charCount = draft.length
+  const lineCount = draft ? draft.split('\n').length : 0
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit System Prompt"
+      subtitle={llm ? `LLM: ${llm}` : undefined}
+      icon={Sparkles}
+      max="max-w-5xl"
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-2.5 text-[11px] text-gray-500">
+          <span className="font-mono">{lineCount} lines · {charCount} characters</span>
+          <span className="hidden sm:block">
+            Use <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-indigo-700 ring-1 ring-gray-200">{'{{variable_name}}'}</code> for dynamic values
+          </span>
+        </div>
+        <div className="min-h-0 flex-1 p-4">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            spellCheck={false}
+            className="h-[60vh] w-full resize-none rounded-lg border border-gray-200 bg-white px-4 py-3 font-mono text-sm leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400"
+            placeholder="You are {{agent_name}}, an admissions voice assistant..."
+          />
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-gray-100 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => { onChange(draft); onClose() }}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-500/30 transition hover:from-indigo-500 hover:to-purple-500"
+          >
+            <Check size={14} />
+            Apply changes
           </button>
         </div>
       </div>
@@ -968,6 +1038,7 @@ export default function AgentPage() {
   const [agentId, setAgentId] = useState('')
   const [agentScope, setAgentScope] = useState('master')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -977,6 +1048,8 @@ export default function AgentPage() {
   const [initialSnapshot, setInitialSnapshot] = useState('')
   const [voiceName, setVoiceName] = useState('')
   const [showVoiceSelector, setShowVoiceSelector] = useState(false)
+  const [showPromptEditor, setShowPromptEditor] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const [availableLanguages, setAvailableLanguages] = useState(LANGUAGES)
 
   const loadAgent = useCallback(async ({ silent = false } = {}) => {
@@ -999,6 +1072,7 @@ export default function AgentPage() {
       } else {
         setVoiceName('')
       }
+      if (silent) setSuccess('Refreshed')
     } catch (err) {
       setError(err.message || 'Failed to load assigned agent.')
     } finally {
@@ -1013,24 +1087,24 @@ export default function AgentPage() {
   useEffect(() => {
     let cancelled = false
 
-    ;(async () => {
-      try {
-        const modelsResponse = await getModels()
-        const allModels = Array.isArray(modelsResponse) ? modelsResponse : []
-        const searchId = FIXED_TTS_MODEL_ID === 'eleven_v3_conversational' ? 'eleven_v3' : FIXED_TTS_MODEL_ID
-        const modelData = allModels.find((model) => model.model_id === searchId)
-        const langs = Array.isArray(modelData?.languages) && modelData.languages.length > 0
-          ? modelData.languages.map((language) => ({
+      ; (async () => {
+        try {
+          const modelsResponse = await getModels()
+          const allModels = Array.isArray(modelsResponse) ? modelsResponse : []
+          const searchId = FIXED_TTS_MODEL_ID === 'eleven_v3_conversational' ? 'eleven_v3' : FIXED_TTS_MODEL_ID
+          const modelData = allModels.find((model) => model.model_id === searchId)
+          const langs = Array.isArray(modelData?.languages) && modelData.languages.length > 0
+            ? modelData.languages.map((language) => ({
               id: language.language_id || language.id,
               name: language.name,
             }))
-          : LANGUAGES
+            : LANGUAGES
 
-        if (!cancelled) setAvailableLanguages(langs)
-      } catch {
-        if (!cancelled) setAvailableLanguages(LANGUAGES)
-      }
-    })()
+          if (!cancelled) setAvailableLanguages(langs)
+        } catch {
+          if (!cancelled) setAvailableLanguages(LANGUAGES)
+        }
+      })()
 
     return () => {
       cancelled = true
@@ -1045,10 +1119,11 @@ export default function AgentPage() {
 
   const variableNames = useMemo(() => {
     if (!form) return []
-    return Array.from(new Set([
+    const detected = new Set([
       ...extractVariables(form.prompt.prompt, form.first_message),
       ...Object.keys(form.dynamic_variables || {}),
-    ])).sort()
+    ])
+    return VISIBLE_DYNAMIC_VARIABLES.filter((name) => detected.has(name))
   }, [form])
 
   const missingVariables = useMemo(() => {
@@ -1087,6 +1162,11 @@ export default function AgentPage() {
 
   async function handleSave() {
     if (!agentData || !form) return
+    if (missingVariables.length > 0) {
+      setError(`Please fill these dynamic variables before saving: ${missingVariables.join(', ')}`)
+      setSuccess('')
+      return
+    }
     setSaving(true)
     setError('')
     setSuccess('')
@@ -1134,7 +1214,7 @@ export default function AgentPage() {
     }
   }
 
-  const pageBg = { background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.10) 0%, transparent 70%), radial-gradient(ellipse 70% 30% at 10% 110%, rgba(168,85,247,0.06) 0%, transparent 70%), #F8FAFC' }
+  const pageBg = { background: '#F8FAFC' }
 
   if (loading) {
     return (
@@ -1165,140 +1245,78 @@ export default function AgentPage() {
     )
   }
 
-  const knowledgeCount = form.prompt.knowledge_base?.length || 0
   const filledVars = variableNames.length - missingVariables.length
   const tabs = [
     { id: 'agent', label: 'Agent', icon: Bot },
     { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
   ]
 
-  const stats = [
-    { label: 'Language Model', value: getLlmLabel(form.prompt.llm), icon: Sparkles, tone: 'indigo' },
-    { label: 'Voice', value: voiceName || (form.tts.voice_id ? 'Custom' : 'Not selected'), icon: Mic2, tone: 'purple' },
-    { label: 'Knowledge Docs', value: `${knowledgeCount} linked`, icon: BookOpen, tone: 'emerald' },
-    {
-      label: 'Variables',
-      value: variableNames.length === 0 ? 'None' : `${filledVars}/${variableNames.length} filled`,
-      icon: Variable,
-      tone: missingVariables.length > 0 ? 'amber' : 'emerald',
-    },
-  ]
-
-  const toneStyles = {
-    indigo: { bg: 'bg-indigo-50', fg: 'text-indigo-600', ring: 'ring-indigo-100' },
-    purple: { bg: 'bg-purple-50', fg: 'text-purple-600', ring: 'ring-purple-100' },
-    emerald: { bg: 'bg-emerald-50', fg: 'text-emerald-600', ring: 'ring-emerald-100' },
-    amber: { bg: 'bg-amber-50', fg: 'text-amber-600', ring: 'ring-amber-100' },
-  }
-
   return (
-    <div className="min-h-full px-6 py-6 pb-28" style={pageBg}>
-      <div className="mx-auto max-w-7xl">
-        {/* Hero */}
-        <div className="relative overflow-hidden rounded-lg shadow-lg shadow-indigo-500/15">
-          <div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 45%, #8B5CF6 100%)',
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle at 85% 20%, rgba(255,255,255,0.25), transparent 45%), radial-gradient(circle at 15% 90%, rgba(255,255,255,0.18), transparent 40%)',
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-[0.07]"
-            style={{
-              backgroundImage:
-                'radial-gradient(circle, #fff 1px, transparent 1px)',
-              backgroundSize: '22px 22px',
-            }}
-          />
-
-          <div className="relative px-7 py-8 sm:px-10 sm:py-10">
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/30 backdrop-blur">
-                  <Bot size={28} className="text-white" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                      {agentScope === 'master' ? 'Master Configuration' : 'Org Configuration'}
-                    </span>
-                    {form.language ? (
-                      <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/25 backdrop-blur">
-                        {form.language}
-                      </span>
-                    ) : null}
-                  </div>
-                  <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                    {form.name || 'Assigned Agent'}
-                  </h1>
-                  <p className="mt-1.5 max-w-xl text-sm text-indigo-100/90">
-                    Configure how your admissions agent speaks, thinks and references your knowledge base.
-                  </p>
-                  {agentId ? (
-                    <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-black/15 px-2.5 py-1 font-mono text-[11px] text-indigo-100 ring-1 ring-white/10">
-                      <span className="opacity-60">ID</span>
-                      {agentId}
-                    </p>
-                  ) : null}
-                </div>
+    <div className="min-h-full px-6 py-7 pb-28" style={pageBg}>
+      <div className="mx-auto max-w-[1280px]">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 pb-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-900 text-white">
+              <Bot size={17} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-[17px] font-semibold tracking-tight text-gray-900">
+                  {form.name || 'Assigned Agent'}
+                </h1>
+                <span className="inline-flex items-center gap-1.5 rounded-sm bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+                  {agentScope === 'master' ? 'Master' : 'Org'}
+                </span>
+                {form.language ? (
+                  <span className="inline-flex items-center rounded-sm bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+                    {form.language}
+                  </span>
+                ) : null}
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (hasChanges && !window.confirm('You have unsaved changes. Refresh and discard them?')) return
-                    loadAgent({ silent: true })
-                  }}
-                  title="Refresh from server"
-                  className="rounded-lg bg-white/15 p-2.5 text-white ring-1 ring-white/25 backdrop-blur transition hover:bg-white/25"
-                >
-                  <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving || !hasChanges}
-                  className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-md shadow-indigo-900/20 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                  {saving ? 'Saving...' : hasChanges ? 'Save changes' : 'All saved'}
-                </button>
-              </div>
+              {agentId ? (
+                <p className="mt-0.5 truncate font-mono text-[11px] text-gray-400">{agentId}</p>
+              ) : null}
             </div>
           </div>
-        </div>
 
-        {/* Stats strip */}
-        <div className="relative z-10 -mt-6 grid gap-3 px-2 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => {
-            const tone = toneStyles[stat.tone]
-            return (
-              <div
-                key={stat.label}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm ring-1',
-                  tone.ring,
-                )}
-              >
-                <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', tone.bg, tone.fg)}>
-                  <stat.icon size={17} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{stat.label}</p>
-                  <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">{stat.value}</p>
-                </div>
-              </div>
-            )
-          })}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!agentId}
+              onClick={() => setShowPreview(true)}
+              className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Play size={13} className="text-indigo-600" />
+              Preview
+            </button>
+            <button
+              type="button"
+              disabled={refreshing}
+              onClick={async () => {
+                if (hasChanges && !window.confirm('You have unsaved changes. Refresh and discard them?')) return
+                setRefreshing(true)
+                try {
+                  await loadAgent({ silent: true })
+                } finally {
+                  setRefreshing(false)
+                }
+              }}
+              title="Refresh from server"
+              className="rounded-md border border-gray-200 bg-white p-1.5 text-gray-500 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700 disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !hasChanges}
+              className="flex items-center gap-1.5 rounded-md bg-gray-900 px-3.5 py-1.5 text-[13px] font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              {saving ? 'Saving' : hasChanges ? 'Save changes' : 'Saved'}
+            </button>
+          </div>
         </div>
 
         {/* Alerts */}
@@ -1308,9 +1326,9 @@ export default function AgentPage() {
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="mt-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/70 px-4 py-3 text-sm text-red-700 shadow-sm"
+              className="mt-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50/60 px-3.5 py-2.5 text-[13px] text-red-700"
             >
-              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <AlertCircle size={14} className="mt-0.5 shrink-0" />
               {error}
             </motion.div>
           ) : null}
@@ -1319,60 +1337,59 @@ export default function AgentPage() {
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              className="mt-5 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-700 shadow-sm"
+              className="mt-4 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 px-3.5 py-2.5 text-[13px] text-emerald-700"
             >
-              <Check size={15} className="mt-0.5 shrink-0" />
+              <Check size={14} className="mt-0.5 shrink-0" />
               {success}
             </motion.div>
           ) : null}
         </AnimatePresence>
 
         {/* Tabs */}
-        <div className="mt-7 mb-6">
-          <div className="inline-flex w-full flex-wrap gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm sm:w-auto">
-            {tabs.map((tab) => {
-              const active = activeTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'group relative flex flex-1 items-center gap-2.5 rounded-lg px-4 py-2.5 text-left transition sm:flex-none',
-                    active
-                      ? 'bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50',
-                  )}
-                >
-                  <tab.icon size={15} className={active ? 'text-white' : 'text-gray-400 group-hover:text-gray-600'} />
-                  <p className="text-sm font-semibold leading-tight">{tab.label}</p>
-                </button>
-              )
-            })}
-          </div>
+        <div className="mt-5 mb-5 flex items-center gap-6 border-b border-gray-200">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'group relative flex items-center gap-2 px-1 pb-3 text-[13px] font-medium transition',
+                  active ? 'text-gray-900' : 'text-gray-500 hover:text-gray-800',
+                )}
+              >
+                <tab.icon size={14} className={active ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'} />
+                {tab.label}
+                {active ? (
+                  <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-gray-900" />
+                ) : null}
+              </button>
+            )
+          })}
         </div>
 
         {activeTab === 'agent' ? (
-          <div className="space-y-6">
+          <div className="space-y-5">
+            {/* Core Identity (full width) */}
             <SectionCard
               icon={Settings2}
               title="Core Identity"
-              description="Basic identity, greeting, and conversation language for the configured agent."
+              description="Title, language, voice and the agent's opening line."
             >
-              <div className="grid gap-5 md:grid-cols-2">
+              <div className="grid gap-5 md:grid-cols-3">
                 <div>
-                  <FieldLabel>Agent Name</FieldLabel>
+                  <FieldLabel>Agent Title</FieldLabel>
                   <input
                     value={form.name}
                     onChange={(e) => updateField('name', e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400"
+                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px] text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400"
                     placeholder="Admissions Assistant"
                   />
                 </div>
                 <div>
                   <FieldLabel>Language</FieldLabel>
                   <Combobox
-                    icon={Variable}
                     searchable
                     value={form.language}
                     onChange={(id) => updateField('language', id)}
@@ -1385,29 +1402,19 @@ export default function AgentPage() {
                     }))}
                   />
                 </div>
-              </div>
-              <div className="mt-5">
-                <FieldLabel>Voice</FieldLabel>
-                <button
-                  type="button"
-                  onClick={() => setShowVoiceSelector(true)}
-                  className="group flex w-full items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100">
-                      <Mic2 size={15} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">
-                        {voiceName || form.tts.voice_id || 'No voice selected'}
-                      </p>
-                      <p className="mt-0.5 truncate font-mono text-[11px] text-gray-400">
-                        {form.tts.voice_id ? form.tts.voice_id : 'Click to choose a voice'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown size={16} className="shrink-0 text-gray-400 transition group-hover:text-indigo-500" />
-                </button>
+                <div>
+                  <FieldLabel>Voice</FieldLabel>
+                  <button
+                    type="button"
+                    onClick={() => setShowVoiceSelector(true)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-left transition hover:border-gray-300"
+                  >
+                    <span className="truncate text-[13px] font-medium text-gray-900">
+                      {voiceName || form.tts.voice_id || 'Choose voice'}
+                    </span>
+                    <ChevronDown size={14} className="shrink-0 text-gray-400" />
+                  </button>
+                </div>
               </div>
 
               <div className="mt-5">
@@ -1415,134 +1422,153 @@ export default function AgentPage() {
                 <textarea
                   value={form.first_message}
                   onChange={(e) => updateField('first_message', e.target.value)}
-                  className="min-h-[120px] w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400"
+                  className="min-h-[88px] w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px] leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400"
                   placeholder="Hello, I’m calling from the admissions office..."
                 />
               </div>
             </SectionCard>
 
-            <SectionCard
-              icon={Sparkles}
-              title="System Prompt"
-              description={`The main instruction set used by the agent during the call. Current LLM: ${getLlmLabel(form.prompt.llm)}.`}
-            >
-              <div className="grid gap-5 md:grid-cols-[1fr_180px_180px]">
-                <div>
-                  <FieldLabel>Choose LLM</FieldLabel>
-                  <select
-                    value={form.prompt.llm}
-                    onChange={(e) => updatePromptField('llm', e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-indigo-400"
-                  >
-                    {llmOptions.map((option) => (
-                      <option key={option} value={option}>{getLlmLabel(option)}</option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-gray-400">{form.prompt.llm}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <FieldLabel>Temperature</FieldLabel>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={form.prompt.temperature}
-                    onChange={(e) => updatePromptField('temperature', Number(e.target.value))}
-                    className="w-full"
-                  />
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[11px] text-gray-400">Focused</span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 font-mono text-xs text-gray-700">
-                      {form.prompt.temperature.toFixed(1)}
-                    </span>
-                    <span className="text-[11px] text-gray-400">Creative</span>
+            {/* Two-column: prompt (wide) + dynamic variables (sticky narrow) */}
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
+              {/* System Prompt — read-only preview + Edit modal */}
+              <SectionCard
+                icon={Sparkles}
+                title="System Prompt"
+                description="The instruction set used by the agent during the call."
+                className="h-full lg:min-h-[560px]"
+                bodyClassName="flex min-h-0 flex-1 flex-col"
+              >
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <FieldLabel>LLM</FieldLabel>
+                    <select
+                      value={form.prompt.llm}
+                      onChange={(e) => updatePromptField('llm', e.target.value)}
+                      className="w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px] text-gray-900 outline-none transition focus:border-gray-400"
+                    >
+                      {llmOptions.map((option) => (
+                        <option key={option} value={option}>{getLlmLabel(option)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Temperature</FieldLabel>
+                    <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white px-3 py-2.5">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={form.prompt.temperature}
+                        onChange={(e) => updatePromptField('temperature', Number(e.target.value))}
+                        className="flex-1 accent-gray-900"
+                      />
+                      <span className="font-mono text-[12px] tabular-nums text-gray-700">
+                        {form.prompt.temperature.toFixed(1)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-5">
-                <FieldLabel>Prompt</FieldLabel>
-                <textarea
-                  value={form.prompt.prompt}
-                  onChange={(e) => updatePromptField('prompt', e.target.value)}
-                  className="min-h-[280px] w-full rounded-lg border border-gray-200 bg-white px-4 py-3 font-mono text-sm leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400"
-                  placeholder="You are {{agent_name}}, an admissions voice assistant..."
-                />
-              </div>
-            </SectionCard>
 
-            <SectionCard
-              icon={Variable}
-              title="Dynamic Variables"
-              description="Variables detected from the prompt and first message. Values are passed to the calling flow."
-              actions={variableNames.length > 0 ? (
-                <span className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold',
-                  missingVariables.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700',
-                )}>
-                  <span className={cn('h-1.5 w-1.5 rounded-full', missingVariables.length > 0 ? 'bg-amber-500' : 'bg-emerald-500')} />
-                  {filledVars}/{variableNames.length} filled
-                </span>
-              ) : null}
-            >
-              {variableNames.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-gradient-to-br from-gray-50 to-white px-5 py-10 text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-white text-gray-300 shadow-sm ring-1 ring-gray-100">
-                    <Variable size={20} />
+                <div className="mt-5 flex min-h-0 flex-1 flex-col">
+                  <div className="mb-2 flex items-center justify-between">
+                    <FieldLabel>Prompt</FieldLabel>
+                    <button
+                      type="button"
+                      onClick={() => setShowPromptEditor(true)}
+                      className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11.5px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                    >
+                      <Edit3 size={12} />
+                      Edit
+                    </button>
                   </div>
-                  <p className="mt-3 text-sm font-semibold text-gray-700">No dynamic variables detected</p>
-                  <p className="mt-1 text-sm text-gray-400">
-                    Use placeholders like <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[12px] text-indigo-700">{'{{student_name}}'}</code> in the prompt or first message.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowPromptEditor(true)}
+                    className="block h-[420px] w-full rounded-md border border-gray-200 bg-gray-50/50 text-left transition hover:border-gray-300 hover:bg-white"
+                    title="Click to edit in a wider editor"
+                  >
+                    <pre className="h-full overflow-y-auto whitespace-pre-wrap break-words p-3.5 font-mono text-[12px] leading-relaxed text-gray-700">
+                      {form.prompt.prompt || 'No prompt set yet — click to start writing.'}
+                    </pre>
+                  </button>
                 </div>
-              ) : (
-                <>
-                  {missingVariables.length > 0 ? (
-                    <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-amber-50/40 px-4 py-3 text-sm text-amber-800">
-                      <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              </SectionCard>
+
+              {/* Dynamic Variables panel */}
+              <section className="flex h-full flex-col rounded-md border border-gray-200 bg-white">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Variable size={14} className="text-indigo-600" />
+                    <h2 className="text-[13px] font-semibold tracking-tight text-gray-900">Variables</h2>
+                  </div>
+                  {variableNames.length > 0 ? (
+                    <span className={cn(
+                      'inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums',
+                      missingVariables.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700',
+                    )}>
+                      <span className={cn('h-1.5 w-1.5 rounded-full', missingVariables.length > 0 ? 'bg-amber-500' : 'bg-emerald-500')} />
+                      {filledVars}/{variableNames.length}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="flex flex-1 flex-col p-4">
+                  {variableNames.length === 0 ? (
+                    <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-gray-200 bg-gray-50/60 px-4 py-8 text-center">
                       <div>
-                        <p className="font-semibold">Some variables are missing values</p>
-                        <p className="mt-0.5 text-xs text-amber-700/90">
-                          {missingVariables.join(', ')}
+                        <p className="text-[12px] font-medium text-gray-700">No variables detected</p>
+                        <p className="mt-1 text-[11px] text-gray-400">
+                          Add <code className="rounded bg-gray-100 px-1 font-mono text-[11px] text-indigo-700">{'{{name}}'}</code> in the prompt.
                         </p>
                       </div>
                     </div>
-                  ) : null}
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {variableNames.map((name) => {
-                      const value = form.dynamic_variables?.[name] || ''
-                      const filled = Boolean(value.trim())
-                      return (
-                        <div key={name} className="group">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <span className="inline-flex items-center gap-2 font-mono text-xs font-semibold text-gray-700">
-                              <span className={cn('h-1.5 w-1.5 rounded-full', filled ? 'bg-emerald-500' : 'bg-amber-500')} />
-                              {`{{${name}}}`}
-                            </span>
-                            {filled ? <Check size={12} className="text-emerald-500" /> : null}
-                          </div>
-                          <input
-                            value={value}
-                            onChange={(e) => setForm((prev) => ({
-                              ...prev,
-                              dynamic_variables: {
-                                ...prev.dynamic_variables,
-                                [name]: e.target.value,
-                              },
-                            }))}
-                            className={cn(
-                              'w-full rounded-lg border bg-white px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400',
-                              filled ? 'border-gray-200' : 'border-amber-200 bg-amber-50/30',
-                            )}
-                            placeholder={`Enter value for ${name}`}
-                          />
+                  ) : (
+                    <>
+                      {missingVariables.length > 0 ? (
+                        <div className="mb-3 flex shrink-0 items-start gap-2 rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 text-[11.5px] text-amber-800">
+                          <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                          <span>
+                            <span className="font-semibold">{missingVariables.length} missing.</span>{' '}
+                            Required to save.
+                          </span>
                         </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </SectionCard>
+                      ) : null}
+                      <div className="flex flex-1 flex-col justify-between gap-3">
+                        {variableNames.map((name) => {
+                          const value = form.dynamic_variables?.[name] || ''
+                          const filled = Boolean(value.trim())
+                          return (
+                            <div key={name}>
+                              <div className="mb-1 flex items-center gap-1.5">
+                                <span className={cn('h-1.5 w-1.5 rounded-full', filled ? 'bg-emerald-500' : 'bg-amber-500')} />
+                                <span className="font-mono text-[11px] font-medium text-gray-600">{name}</span>
+                              </div>
+                              <textarea
+                                rows={3}
+                                value={value}
+                                onChange={(e) => setForm((prev) => ({
+                                  ...prev,
+                                  dynamic_variables: {
+                                    ...prev.dynamic_variables,
+                                    [name]: e.target.value,
+                                  },
+                                }))}
+                                className={cn(
+                                  'w-full resize-none rounded-md border bg-white px-3 py-2.5 text-[13px] leading-relaxed text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400',
+                                  filled ? 'border-gray-200' : 'border-amber-200 bg-amber-50/30',
+                                )}
+                                placeholder={`Value for ${name}`}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         ) : null}
 
@@ -1563,27 +1589,30 @@ export default function AgentPage() {
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
           >
-            <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-2xl shadow-indigo-500/10 ring-1 ring-black/5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                <AlertCircle size={15} />
-              </span>
-              <div className="pr-2">
-                <p className="text-sm font-semibold text-gray-900">You have unsaved changes</p>
-                <p className="text-xs text-gray-500">Save to apply them to your agent.</p>
-              </div>
+            <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white px-3.5 py-2.5 shadow-lg ring-1 ring-black/5">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              <p className="text-[12.5px] font-medium text-gray-700">Unsaved changes</p>
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-indigo-500/30 transition hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
               >
-                <Save size={14} />
+                <Save size={12} />
                 Save now
               </button>
             </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
+
+      <EditPromptModal
+        open={showPromptEditor}
+        value={form.prompt.prompt}
+        onChange={(next) => updatePromptField('prompt', next)}
+        onClose={() => setShowPromptEditor(false)}
+        llm={getLlmLabel(form.prompt.llm)}
+      />
 
       <VoiceSelectorModal
         open={showVoiceSelector}
@@ -1599,6 +1628,17 @@ export default function AgentPage() {
             },
           }))
         }}
+      />
+
+      <AgentPreviewModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        agentId={agentId}
+        agentName={form.name}
+        promptText={form.prompt.prompt}
+        firstMessage={form.first_message}
+        initialDynamicVariables={form.dynamic_variables || {}}
+        hasUnsavedChanges={hasChanges}
       />
     </div>
   )

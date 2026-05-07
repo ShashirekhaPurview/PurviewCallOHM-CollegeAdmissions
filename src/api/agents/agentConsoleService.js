@@ -156,6 +156,11 @@ export async function updateAgent(agentId, payload) {
   })
 }
 
+export async function getSignedUrl(agentId) {
+  const query = new URLSearchParams({ agent_id: agentId })
+  return request(`/v1/convai/conversation/get_signed_url?${query.toString()}`)
+}
+
 export async function getVoice(voiceId) {
   return request(`/v1/voices/${voiceId}`)
 }
@@ -278,6 +283,7 @@ export default {
   duplicateAgent,
   getAgent,
   updateAgent,
+  getSignedUrl,
   listAgents,
   listAllAgents,
   getModels,

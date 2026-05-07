@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Archive, BarChart3, Building2, Check, ChevronDown, CircleAlert, Copy, Crown, KeyRound, Mail,
+  Archive, BarChart3, Building2, Check, ChevronDown, CircleAlert, Copy, Crown, Eye, EyeOff, KeyRound, Mail,
   Plus, RefreshCw, RotateCcw, Search, Shield, User as UserIcon, UserPlus, Users as UsersIcon, X, Settings, ChevronLeft, Pencil
 } from 'lucide-react'
 import {
@@ -13,6 +13,38 @@ import { getCurrentUser } from '../../api/auth/authService'
 import { renameOrgAgentAssignment } from '../../api/orgs/orgAgentAssignmentStore'
 
 /* ───────── helpers ───────── */
+
+const PASSWORD_RULES = [
+  { test: (p) => p.length >= 8,         msg: 'at least 8 characters' },
+  { test: (p) => /[A-Z]/.test(p),       msg: 'an uppercase letter' },
+  { test: (p) => /[a-z]/.test(p),       msg: 'a lowercase letter' },
+  { test: (p) => /\d/.test(p),          msg: 'a number' },
+  { test: (p) => /[^A-Za-z0-9]/.test(p), msg: 'a special character' },
+]
+
+function validatePassword(pwd) {
+  const failed = PASSWORD_RULES.filter(r => !r.test(pwd || '')).map(r => r.msg)
+  if (failed.length === 0) return ''
+  return `Password must contain ${failed.join(', ')}.`
+}
+
+function PasswordChecklist({ value }) {
+  if (!value) return null
+  return (
+    <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+      {PASSWORD_RULES.map((r) => {
+        const ok = r.test(value)
+        return (
+          <li key={r.msg} className={`flex items-center gap-1.5 text-[11px] ${ok ? 'text-emerald-600' : 'text-gray-400'}`}>
+            {ok ? <Check size={11} /> : <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />}
+            <span className={ok ? 'font-semibold' : ''}>{r.msg}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 
 const ROLE_META = {
   super_admin: { label: 'Super Admin', icon: Crown, bg: '#FFFBEB', fg: '#B45309', dot: '#F59E0B' },
@@ -184,6 +216,10 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
 }
 
 function Field({ id, label, type = 'text', value, onChange, placeholder, error, autoFocus, leading }) {
+  const isPassword = type === 'password'
+  const [reveal, setReveal] = useState(false)
+  const inputType = isPassword ? (reveal ? 'text' : 'password') : type
+
   return (
     <div>
       <label htmlFor={id} className="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-400">
@@ -194,10 +230,22 @@ function Field({ id, label, type = 'text', value, onChange, placeholder, error, 
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300">{leading}</span>
         )}
         <input
-          id={id} type={type} value={value} onChange={onChange}
+          id={id} type={inputType} value={value} onChange={onChange}
           placeholder={placeholder} autoFocus={autoFocus}
-          className={`w-full rounded-md border border-gray-200 bg-gray-50 ${leading ? 'pl-10' : 'pl-4'} pr-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100`}
+          className={`w-full rounded-md border border-gray-200 bg-gray-50 ${leading ? 'pl-10' : 'pl-4'} ${isPassword ? 'pr-11' : 'pr-4'} py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100`}
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setReveal(r => !r)}
+            tabIndex={-1}
+            aria-label={reveal ? 'Hide password' : 'Show password'}
+            title={reveal ? 'Hide password' : 'Show password'}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+          >
+            {reveal ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        )}
       </div>
       {error && <p className="mt-2 text-xs font-medium text-red-500">{error}</p>}
     </div>
@@ -472,6 +520,8 @@ export default function OrganizationDetailsPage() {
     e.preventDefault()
     if (!invForm.email.trim()) { setInviteErr('Email is required.'); return }
     if (!invForm.password.trim()) { setInviteErr('Password is required.'); return }
+    const pwdErr = validatePassword(invForm.password)
+    if (pwdErr) { setInviteErr(pwdErr); return }
     setInviting(true); setInviteErr('')
     try {
       const created = await inviteUser(orgId, {
@@ -504,7 +554,9 @@ export default function OrganizationDetailsPage() {
 
   async function handleReset(e) {
     e.preventDefault()
-    if (!newPwd.trim() || newPwd.length < 6) { setResetErr('Password must be at least 6 characters.'); return }
+    if (!newPwd.trim()) { setResetErr('Password is required.'); return }
+    const pwdErr = validatePassword(newPwd)
+    if (pwdErr) { setResetErr(pwdErr); return }
     setResetting(true); setResetErr('')
     try {
       await resetUserPassword(orgId, resetUser.user_id, newPwd)
@@ -784,13 +836,16 @@ export default function OrganizationDetailsPage() {
             leading={<Mail size={14} />}
             autoFocus
           />
-          <Field
-            id="invPwd" label="Password" type="password"
-            value={invForm.password}
-            onChange={e => setInvForm(f => ({ ...f, password: e.target.value }))}
-            placeholder="At least 6 characters"
-            leading={<KeyRound size={14} />}
-          />
+          <div>
+            <Field
+              id="invPwd" label="Password" type="password"
+              value={invForm.password}
+              onChange={e => setInvForm(f => ({ ...f, password: e.target.value }))}
+              placeholder="At least 8 characters"
+              leading={<KeyRound size={14} />}
+            />
+            <PasswordChecklist value={invForm.password} />
+          </div>
           <Select
             id="invRole" label="Role"
             value={invForm.role}
@@ -826,15 +881,18 @@ export default function OrganizationDetailsPage() {
           <div className="rounded-md bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800 ring-1 ring-amber-100">
             All active sessions for this user will be revoked. They'll need to sign in again with the new password.
           </div>
-          <Field
-            id="newPwd" label="New password" type="password"
-            value={newPwd}
-            onChange={e => setNewPwd(e.target.value)}
-            placeholder="At least 6 characters"
-            leading={<KeyRound size={14} />}
-            autoFocus
-            error={resetErr}
-          />
+          <div>
+            <Field
+              id="newPwd" label="New password" type="password"
+              value={newPwd}
+              onChange={e => setNewPwd(e.target.value)}
+              placeholder="At least 8 characters"
+              leading={<KeyRound size={14} />}
+              autoFocus
+              error={resetErr}
+            />
+            <PasswordChecklist value={newPwd} />
+          </div>
           <div className="flex gap-2.5">
             <button type="button" onClick={() => { setResetUser(null); setNewPwd(''); setResetErr('') }}
               className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">

@@ -20,7 +20,8 @@ function getAgentIdValue(agent) {
 }
 
 export function buildOrganizationAgentName(orgName) {
-  return `${orgName || 'Organization'} admissions agent`
+  const org = (orgName || 'Organization').trim()
+  return `${org} - Admission Agent`
 }
 
 export function buildOrganizationAgentTag(orgId) {

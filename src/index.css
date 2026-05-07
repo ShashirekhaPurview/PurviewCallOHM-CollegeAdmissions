@@ -158,8 +158,14 @@
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--accent) 22%, transparent);
-    color: var(--ink);
+    background: #4F46E5;
+    color: #FFFFFF;
+    text-shadow: none;
+  }
+  ::-moz-selection {
+    background: #4F46E5;
+    color: #FFFFFF;
+    text-shadow: none;
   }
 
   ::-webkit-scrollbar {

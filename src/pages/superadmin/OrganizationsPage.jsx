@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive, BarChart3, Building2, Check, CircleAlert, Copy, ListChecks,
-  Pencil, Plus, RefreshCw, RotateCcw, Search, X,
+  Loader2, Pencil, Plus, RefreshCw, RotateCcw, Search, Sparkles, Wand2, X,
 } from 'lucide-react'
 import {
   activateOrganization, createOrganization, deactivateOrganization,
@@ -183,6 +183,7 @@ export default function OrganizationsPage() {
   const [newAddress, setNewAddress] = useState(INITIAL_ADDRESS)
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
+  const [provisioning, setProvisioning] = useState(null) // { orgName, step: 'duplicate'|'create'|'finalize'|'refresh'|'done' }
 
   const [renameOrg, setRenameOrg] = useState(null)
   const [renameName, setRenameName] = useState('')
@@ -243,22 +244,37 @@ export default function OrganizationsPage() {
 
     setCreating(true)
     setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
+    setProvisioning({ orgName: name, step: 'duplicate' })
     try {
       const { agent_id, master_agent } = await duplicateMasterAgentForOrg()
 
+      setProvisioning({ orgName: name, step: 'create' })
       const created = await createOrganization({ name, location, agent_id })
       setCreateOpen(false)
       setNewName('')
       setNewAddress(INITIAL_ADDRESS)
+
+      setProvisioning({ orgName: created.name, step: 'finalize' })
+      let agentErr = null
       try {
         await finalizeOrganizationAgent(created, { agent_id, master_agent })
-        showToast(`"${created.name}" created with a dedicated admissions agent`)
       } catch (agentError) {
-        showToast(`"${created.name}" created, but agent setup failed: ${agentError.message || 'Unknown error'}`, 'error')
+        agentErr = agentError
       }
+
+      setProvisioning({ orgName: created.name, step: 'refresh' })
       await load({ keepToast: true })
+
+      setProvisioning({ orgName: created.name, step: 'done' })
+      if (agentErr) {
+        showToast(`"${created.name}" created, but agent setup failed: ${agentErr.message || 'Unknown error'}`, 'error')
+      } else {
+        showToast(`"${created.name}" created with a dedicated admissions agent`)
+      }
+      setTimeout(() => setProvisioning(null), 700)
     } catch (e) {
       setCreateErr(prev => ({ ...prev, form: e.message || 'Could not create.' }))
+      setProvisioning(null)
     }
     finally { setCreating(false) }
   }
@@ -602,6 +618,9 @@ export default function OrganizationsPage() {
         )}
       </Modal>
 
+      {/* ── Provisioning overlay ── */}
+      <ProvisioningOverlay state={provisioning} />
+
       {/* ── Toast ── */}
       <AnimatePresence>
         {toast && (
@@ -767,23 +786,25 @@ function OrgCard({ org, isToggling, onSelect, onRename, onArchive, onRestore }) 
 
         <p className="mt-3 text-xs text-gray-400">Created {fmtDate(org.created_at)}</p>
 
-        {/* Actions - always visible */}
+        {/* Actions */}
         <div className="mt-4 flex gap-2">
-          <button
-            onClick={(e) => { e.stopPropagation(); onRename(e); }}
-            className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
-          >
-            <Pencil size={12} /> Rename
-          </button>
           {org.is_active ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onArchive(e); }}
-              disabled={isToggling}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-rose-100 bg-rose-50 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
-            >
-              {isToggling ? <RefreshCw size={11} className="animate-spin" /> : <Archive size={12} />}
-              {isToggling ? '…' : 'Archive'}
-            </button>
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRename(e); }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+              >
+                <Pencil size={12} /> Rename
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onArchive(e); }}
+                disabled={isToggling}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-rose-100 bg-rose-50 py-2 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+              >
+                {isToggling ? <RefreshCw size={11} className="animate-spin" /> : <Archive size={12} />}
+                {isToggling ? '…' : 'Archive'}
+              </button>
+            </>
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); onRestore(e); }}
@@ -833,6 +854,176 @@ function EmptyState({ archived, search, onCreate }) {
         </motion.button>
       )}
     </div>
+  )
+}
+
+function ProvisioningOverlay({ state }) {
+  const STEPS = [
+    { id: 'duplicate', label: 'Duplicating master agent', icon: Wand2 },
+    { id: 'create',    label: 'Creating organization',    icon: Building2 },
+    { id: 'finalize',  label: 'Finalizing agent',         icon: Sparkles },
+    { id: 'refresh',   label: 'Refreshing list',          icon: RefreshCw },
+  ]
+  const order = ['duplicate', 'create', 'finalize', 'refresh', 'done']
+  const currentIdx = state ? order.indexOf(state.step) : -1
+  const progress = state ? Math.min(100, ((currentIdx + 1) / order.length) * 100) : 0
+
+  return (
+    <AnimatePresence>
+      {state && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.18), rgba(15,23,42,0.55) 60%)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          />
+
+          {/* Card */}
+          <motion.div
+            initial={{ y: 22, scale: 0.96, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: 12, scale: 0.97, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+            className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/10"
+          >
+            {/* Top gradient header */}
+            <div
+              className="relative px-7 pt-7 pb-6 text-white"
+              style={{ background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #8B5CF6 100%)' }}
+            >
+              {/* animated dots */}
+              <div
+                className="absolute inset-0 opacity-20"
+                style={{
+                  backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+                  backgroundSize: '18px 18px',
+                }}
+              />
+              {/* orbiting glow */}
+              <motion.div
+                className="absolute -right-10 -top-10 h-40 w-40 rounded-full"
+                style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%)' }}
+                animate={{ scale: [1, 1.15, 1], opacity: [0.35, 0.6, 0.35] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+              />
+
+              <div className="relative flex items-center gap-4">
+                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20 ring-1 ring-white/40 backdrop-blur">
+                  {state.step === 'done' ? (
+                    <motion.div
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 480, damping: 22 }}
+                    >
+                      <Check size={26} className="text-white" />
+                    </motion.div>
+                  ) : (
+                    <Building2 size={24} className="text-white" />
+                  )}
+                  {state.step !== 'done' && (
+                    <motion.span
+                      className="absolute inset-0 rounded-2xl ring-2 ring-white/60"
+                      animate={{ scale: [1, 1.18, 1], opacity: [0.8, 0, 0.8] }}
+                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-white/75">
+                    {state.step === 'done' ? 'All set' : 'Setting things up'}
+                  </p>
+                  <h3 className="mt-1 truncate text-lg font-bold leading-tight">
+                    {state.orgName || 'New organization'}
+                  </h3>
+                </div>
+              </div>
+
+              {/* progress bar */}
+              <div className="relative mt-5 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ background: 'linear-gradient(90deg, #fff, #C7D2FE)' }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+            </div>
+
+            {/* Steps */}
+            <div className="px-6 py-5">
+              <ol className="space-y-2">
+                {STEPS.map((s, idx) => {
+                  const status =
+                    state.step === 'done' || idx < currentIdx ? 'done'
+                      : idx === currentIdx ? 'active'
+                      : 'pending'
+                  const Icon = s.icon
+                  return (
+                    <li
+                      key={s.id}
+                      className={`flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition ${
+                        status === 'active'
+                          ? 'border-indigo-200 bg-indigo-50/70'
+                          : status === 'done'
+                          ? 'border-emerald-100 bg-emerald-50/60'
+                          : 'border-gray-100 bg-gray-50/60'
+                      }`}
+                    >
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                          status === 'active'
+                            ? 'bg-indigo-600 text-white'
+                            : status === 'done'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-white text-gray-400 ring-1 ring-gray-200'
+                        }`}
+                      >
+                        {status === 'done' ? (
+                          <Check size={14} />
+                        ) : status === 'active' ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Icon size={14} />
+                        )}
+                      </span>
+                      <span
+                        className={`text-sm font-semibold ${
+                          status === 'active'
+                            ? 'text-indigo-800'
+                            : status === 'done'
+                            ? 'text-emerald-700'
+                            : 'text-gray-500'
+                        }`}
+                      >
+                        {s.label}
+                      </span>
+                      {status === 'active' && (
+                        <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-indigo-500">
+                          In progress
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+              <p className="mt-4 text-center text-[11px] text-gray-400">
+                {state.step === 'done'
+                  ? 'Redirecting your view…'
+                  : 'Hang tight — this only takes a few seconds.'}
+              </p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
