@@ -156,6 +156,10 @@ export async function updateAgent(agentId, payload) {
   })
 }
 
+export async function deleteAgent(agentId) {
+  return request(`/v1/convai/agents/${agentId}`, { method: 'DELETE' })
+}
+
 export async function getSignedUrl(agentId) {
   const query = new URLSearchParams({ agent_id: agentId })
   return request(`/v1/convai/conversation/get_signed_url?${query.toString()}`)
@@ -283,6 +287,7 @@ export default {
   duplicateAgent,
   getAgent,
   updateAgent,
+  deleteAgent,
   getSignedUrl,
   listAgents,
   listAllAgents,

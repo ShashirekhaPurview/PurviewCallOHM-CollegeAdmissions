@@ -271,28 +271,21 @@ function Combobox({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'group flex w-full items-center justify-between gap-3 rounded-lg border bg-white px-4 py-3 text-left transition',
-          open ? 'border-indigo-400 ring-2 ring-indigo-100' : 'border-gray-200 hover:border-indigo-300',
+          'flex w-full items-center justify-between gap-3 rounded-md border bg-white px-3 py-2.5 text-left transition',
+          open ? 'border-gray-400' : 'border-gray-200 hover:border-gray-300',
         )}
       >
-        <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
           {Icon ? (
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
-              <Icon size={14} />
-            </div>
+            <Icon size={14} className="shrink-0 text-gray-400" />
           ) : null}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-gray-900">
-              {selected ? selected.label : <span className="text-gray-400 font-normal">{placeholder}</span>}
-            </p>
-            {selected?.hint ? (
-              <p className="mt-0.5 truncate text-[11px] text-gray-400">{selected.hint}</p>
-            ) : null}
-          </div>
+          <span className="truncate text-[13px] text-gray-900">
+            {selected ? selected.label : <span className="text-gray-300">{placeholder}</span>}
+          </span>
         </div>
         <ChevronDown
-          size={15}
-          className={cn('shrink-0 text-gray-400 transition', open ? 'rotate-180 text-indigo-500' : '')}
+          size={14}
+          className={cn('shrink-0 text-gray-400 transition', open ? 'rotate-180' : '')}
         />
       </button>
 
@@ -1398,7 +1391,6 @@ export default function AgentPage() {
                     options={languageOptions.map((language) => ({
                       id: language.id,
                       label: language.name,
-                      hint: language.id,
                     }))}
                   />
                 </div>
@@ -1435,8 +1427,8 @@ export default function AgentPage() {
                 icon={Sparkles}
                 title="System Prompt"
                 description="The instruction set used by the agent during the call."
-                className="h-full lg:min-h-[560px]"
-                bodyClassName="flex min-h-0 flex-1 flex-col"
+                className=""
+                bodyClassName=""
               >
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
@@ -1470,7 +1462,7 @@ export default function AgentPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex min-h-0 flex-1 flex-col">
+                <div className="mt-5">
                   <div className="mb-2 flex items-center justify-between">
                     <FieldLabel>Prompt</FieldLabel>
                     <button
@@ -1485,7 +1477,7 @@ export default function AgentPage() {
                   <button
                     type="button"
                     onClick={() => setShowPromptEditor(true)}
-                    className="block h-[420px] w-full rounded-md border border-gray-200 bg-gray-50/50 text-left transition hover:border-gray-300 hover:bg-white"
+                    className="block h-[560px] w-full rounded-md border border-gray-200 bg-gray-50/50 text-left transition hover:border-gray-300 hover:bg-white"
                     title="Click to edit in a wider editor"
                   >
                     <pre className="h-full overflow-y-auto whitespace-pre-wrap break-words p-3.5 font-mono text-[12px] leading-relaxed text-gray-700">

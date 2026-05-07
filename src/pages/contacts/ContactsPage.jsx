@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -13,6 +13,10 @@ import {
   createContact, deleteContact, downloadImportTemplate,
   getContact, importContacts, listContacts,
 } from '../../api/contacts/contactService'
+import {
+  COUNTRY_CODES, getDefaultCountry, sanitizePhoneNumber,
+  validatePhoneNumberForCountry,
+} from '../../utils/countryCodes'
 
 /* ─────────── constants ─────────── */
 
@@ -125,7 +129,7 @@ function Drawer({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF'
   )
 }
 
-function Field({ id, label, value, onChange, placeholder, type = 'text', leading, autoFocus, maxLength }) {
+function Field({ id, label, value, onChange, onBlur, placeholder, type = 'text', leading, autoFocus, maxLength, error }) {
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-gray-400">
@@ -134,10 +138,141 @@ function Field({ id, label, value, onChange, placeholder, type = 'text', leading
       <div className="relative">
         {leading && <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">{leading}</span>}
         <input
-          id={id} type={type} value={value} onChange={onChange}
+          id={id} type={type} value={value} onChange={onChange} onBlur={onBlur}
           placeholder={placeholder} autoFocus={autoFocus} maxLength={maxLength}
-          className={`w-full rounded-md border border-gray-200 bg-gray-50 ${leading ? 'pl-10' : 'pl-4'} pr-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100`}
+          className={`w-full rounded-md border ${error ? 'border-red-300 bg-red-50/40 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 bg-gray-50 focus:border-indigo-400 focus:ring-indigo-100'} ${leading ? 'pl-10' : 'pl-4'} pr-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:bg-white focus:ring-4`}
         />
+      </div>
+      {error && <p className="mt-1.5 text-[11px] font-medium text-red-600">{error}</p>}
+    </div>
+  )
+}
+
+function isoToFlag(iso) {
+  if (!iso || iso.length !== 2) return '🌐'
+  const A = 0x1F1E6
+  const offset = c => A + c.charCodeAt(0) - 'A'.charCodeAt(0)
+  return String.fromCodePoint(offset(iso[0]), offset(iso[1]))
+}
+
+function CountryCodePicker({ value, onChange, label = 'Code' }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const containerRef = useRef(null)
+  const inputRef = useRef(null)
+
+  const selected = useMemo(
+    () => COUNTRY_CODES.find(c => c.dialCode === value) || getDefaultCountry(),
+    [value],
+  )
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return COUNTRY_CODES
+    return COUNTRY_CODES.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.dialCode.includes(q) ||
+      c.isoCode.toLowerCase().includes(q)
+    )
+  }, [query])
+
+  useEffect(() => {
+    if (!open) return
+    function onDown(e) {
+      if (!containerRef.current?.contains(e.target)) setOpen(false)
+    }
+    function onKey(e) { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      const id = setTimeout(() => inputRef.current?.focus(), 30)
+      return () => clearTimeout(id)
+    }
+    if (!open) setQuery('')
+  }, [open])
+
+  return (
+    <div ref={containerRef}>
+      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+        {label}
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-gray-50 px-3 py-3 text-sm transition focus:bg-white ${
+            open ? 'border-indigo-400 ring-4 ring-indigo-100' : 'border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="text-base leading-none">{isoToFlag(selected.isoCode)}</span>
+            <span className="font-medium text-gray-900">{selected.dialCode}</span>
+          </span>
+          <ChevronDown size={14} className={`shrink-0 text-gray-400 transition ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.12 }}
+              className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl ring-1 ring-black/5"
+              style={{ minWidth: 280 }}
+            >
+              <div className="border-b border-gray-100 p-2">
+                <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                  <Search size={13} className="text-gray-400" />
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search country or code…"
+                    className="w-full bg-transparent text-xs text-gray-800 outline-none placeholder:text-gray-400"
+                  />
+                  {query ? (
+                    <button type="button" onClick={() => setQuery('')} className="text-gray-400 hover:text-gray-600">
+                      <X size={12} />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto py-1">
+                {filtered.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs text-gray-400">No matches</div>
+                ) : (
+                  filtered.map((c) => {
+                    const active = c.dialCode === value && (selected?.isoCode === c.isoCode)
+                    return (
+                      <button
+                        key={`${c.isoCode}-${c.dialCode}`}
+                        type="button"
+                        onClick={() => { onChange(c); setOpen(false) }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition ${
+                          active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span className="text-base leading-none">{isoToFlag(c.isoCode)}</span>
+                          <span className="truncate font-medium">{c.name}</span>
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-gray-500">{c.dialCode}</span>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
@@ -433,6 +568,7 @@ const CONTACTS_EXPORT_COLUMNS = [
 ]
 
 function ContactsList({ orgId, isSuper, onBackToOrgs }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [contacts, setContacts] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -448,6 +584,21 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
   const [form, setForm] = useState(INITIAL_FORM)
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState('')
+  const [phoneErr, setPhoneErr] = useState('')
+
+  // Deep-link: ?create=1 from other pages auto-opens the create modal once.
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setCreateOpen(true)
+      setForm(INITIAL_FORM)
+      setCreateErr('')
+      setPhoneErr('')
+      const next = new URLSearchParams(searchParams)
+      next.delete('create')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // import
   const [importOpen, setImportOpen] = useState(false)
@@ -538,7 +689,11 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
     e.preventDefault()
     if (!form.full_name.trim()) { setCreateErr('Full name is required.'); return }
     if (!form.email.trim()) { setCreateErr('Email is required.'); return }
-    if (!form.phone_number.trim()) { setCreateErr('Phone number is required.'); return }
+    const phoneCheck = validatePhoneNumberForCountry({
+      phoneNumber: form.phone_number,
+      dialCode: form.phone_country_code,
+    })
+    if (!phoneCheck.isValid) { setPhoneErr(phoneCheck.message); return }
     if (form.twelfth_score !== '') {
       const scoreNum = Number(form.twelfth_score)
       if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > 100) {
@@ -552,7 +707,7 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone_country_code: form.phone_country_code.trim() || '+91',
-        phone_number: form.phone_number.trim(),
+        phone_number: phoneCheck.digits,
         city: form.city.trim() || null,
         state: form.state.trim() || null,
         twelfth_score: form.twelfth_score === '' ? null : Number(form.twelfth_score),
@@ -706,7 +861,7 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
             </button>
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              onClick={() => { setCreateOpen(true); setForm(INITIAL_FORM); setCreateErr('') }}
+              onClick={() => { setCreateOpen(true); setForm(INITIAL_FORM); setCreateErr(''); setPhoneErr('') }}
               className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
               style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
             >
@@ -750,7 +905,7 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <EmptyContacts hasFilter={!!(search || statusFilter || sourceFilter)} onCreate={() => { setCreateOpen(true); setForm(INITIAL_FORM); setCreateErr('') }} />
+            <EmptyContacts hasFilter={!!(search || statusFilter || sourceFilter)} onCreate={() => { setCreateOpen(true); setForm(INITIAL_FORM); setCreateErr(''); setPhoneErr('') }} />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -844,9 +999,40 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
         <form onSubmit={handleCreate} className="space-y-4">
           <Field id="cname" label="Full name" value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. Priya Sharma" leading={<User size={14} />} autoFocus />
           <Field id="cemail" label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="priya@example.com" leading={<Mail size={14} />} />
-          <div className="grid grid-cols-[100px_1fr] gap-3">
-            <Field id="ccode" label="Code" value={form.phone_country_code} onChange={e => setForm(f => ({ ...f, phone_country_code: e.target.value }))} placeholder="+91" />
-            <Field id="cphone" label="Phone number" value={form.phone_number} onChange={e => setForm(f => ({ ...f, phone_number: e.target.value }))} placeholder="9876543210" leading={<Phone size={14} />} />
+          <div className="grid grid-cols-[140px_1fr] items-start gap-3">
+            <CountryCodePicker
+              value={form.phone_country_code}
+              onChange={(c) => {
+                const next = sanitizePhoneNumber(form.phone_number).slice(0, c.maxLength || 15)
+                setForm(f => ({ ...f, phone_country_code: c.dialCode, phone_number: next }))
+                setPhoneErr('')
+              }}
+            />
+            <Field
+              id="cphone"
+              label={`Phone number${(() => {
+                const c = COUNTRY_CODES.find(c => c.dialCode === form.phone_country_code)
+                return c?.maxLength ? ` (${c.maxLength} digits)` : ''
+              })()}`}
+              value={form.phone_number}
+              onChange={(e) => {
+                const c = COUNTRY_CODES.find(c => c.dialCode === form.phone_country_code)
+                const cap = c?.maxLength || 15
+                setForm(f => ({ ...f, phone_number: sanitizePhoneNumber(e.target.value).slice(0, cap) }))
+                if (phoneErr) setPhoneErr('')
+              }}
+              onBlur={() => {
+                if (!form.phone_number.trim()) { setPhoneErr(''); return }
+                const check = validatePhoneNumberForCountry({
+                  phoneNumber: form.phone_number,
+                  dialCode: form.phone_country_code,
+                })
+                setPhoneErr(check.isValid ? '' : check.message)
+              }}
+              placeholder="9876543210"
+              leading={<Phone size={14} />}
+              error={phoneErr}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field id="ccity" label="City" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="Hyderabad" leading={<MapPin size={14} />} />

@@ -95,3 +95,12 @@ export function renameOrgAgentAssignment(orgId, orgName) {
 export function listOrgAgentAssignments() {
   return Object.values(readStore().items)
 }
+
+export function removeOrgAgentAssignment(orgId) {
+  if (!orgId) return false
+  const store = readStore()
+  if (!store.items[orgId]) return false
+  delete store.items[orgId]
+  writeStore(store)
+  return true
+}

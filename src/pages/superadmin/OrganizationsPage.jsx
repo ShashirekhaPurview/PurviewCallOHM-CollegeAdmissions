@@ -3,19 +3,25 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive, BarChart3, Building2, Check, CircleAlert, Copy, ListChecks,
-  Loader2, Pencil, Plus, RefreshCw, RotateCcw, Search, Sparkles, Wand2, X,
+  Loader2, Pencil, Plus, RefreshCw, RotateCcw, Search, Trash2, X,
 } from 'lucide-react'
 import {
-  activateOrganization, createOrganization, deactivateOrganization,
+  activateOrganization, createOrganization, deactivateOrganization, deleteOrganization,
   listOrganizations, updateOrganization,
 } from '../../api/orgs/orgService'
+import { getCurrentUser } from '../../api/auth/authService'
 import {
   duplicateMasterAgentForOrg,
   finalizeOrganizationAgent,
 } from '../../api/agents/orgScopedAgentService'
-import { renameOrgAgentAssignment } from '../../api/orgs/orgAgentAssignmentStore'
+import { renameOrgAgentAssignment, removeOrgAgentAssignment, getOrgAgentAssignment } from '../../api/orgs/orgAgentAssignmentStore'
+import { deleteAgent } from '../../api/agents/agentConsoleService'
 
 /* ───────────── helpers ───────────── */
+
+function cn(...parts) {
+  return parts.filter(Boolean).join(' ')
+}
 
 const PALETTE = [
   { from: '#6366F1', to: '#8B5CF6', bg: '#EEF2FF', fg: '#4338CA' },
@@ -53,11 +59,11 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className={`relative w-full ${max} overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/6`}
+            className={`relative w-full ${max} overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-black/6`}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-5">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl" style={{ background: iconBg }}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-md" style={{ background: iconBg }}>
                   <Icon size={17} style={{ color: iconFg }} />
                 </div>
                 <div>
@@ -65,7 +71,7 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
                   {subtitle && <p className="mt-0.5 font-mono text-[10px] text-gray-400">{subtitle}</p>}
                 </div>
               </div>
-              <button onClick={onClose} className="rounded-xl p-1.5 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500">
+              <button onClick={onClose} className="rounded-md p-1.5 text-gray-300 transition hover:bg-gray-100 hover:text-gray-500">
                 <X size={15} />
               </button>
             </div>
@@ -86,7 +92,7 @@ function Field({ id, label, value, onChange, placeholder, error, autoFocus }) {
       <input
         id={id} type="text" value={value} onChange={onChange}
         placeholder={placeholder} autoFocus={autoFocus}
-        className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+        className="w-full rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
       />
       {error && <p className="mt-2 text-xs font-medium text-red-500">{error}</p>}
     </div>
@@ -192,6 +198,13 @@ export default function OrganizationsPage() {
 
   const [confirmOrg, setConfirmOrg] = useState(null) // org pending archive
   const [togglingId, setTogglingId] = useState('')
+  const [deleteOrg, setDeleteOrg] = useState(null) // org pending permanent delete
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteErr, setDeleteErr] = useState('')
+
+  const currentUser = getCurrentUser()
+  const canDelete = currentUser?.role === 'super_admin'
 
   const activeOrgs = orgs.filter(o => o.is_active)
   const archivedOrgs = orgs.filter(o => !o.is_active)
@@ -232,7 +245,7 @@ export default function OrganizationsPage() {
       state: !state ? 'State is required.' : '',
       pincode: !pincode
         ? 'Pincode is required.'
-        : !/^\d{4,10}$/.test(pincode) ? 'Enter a valid pincode.' : '',
+        : !/^\d{6}$/.test(pincode) ? 'Enter a valid 6-digit pincode.' : '',
       form: '',
     }
     if (errs.name || errs.address1 || errs.city || errs.state || errs.pincode) {
@@ -244,12 +257,25 @@ export default function OrganizationsPage() {
 
     setCreating(true)
     setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
+
+    // Minimum hold per step so the assembly animation reads as deliberate
+    // even when the API responds quickly.
+    const STEP_HOLD_MS = 1100
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+    const holdAtLeast = async (work) => {
+      const startedAt = Date.now()
+      const result = await work
+      const elapsed = Date.now() - startedAt
+      if (elapsed < STEP_HOLD_MS) await sleep(STEP_HOLD_MS - elapsed)
+      return result
+    }
+
     setProvisioning({ orgName: name, step: 'duplicate' })
     try {
-      const { agent_id, master_agent } = await duplicateMasterAgentForOrg()
+      const { agent_id, master_agent } = await holdAtLeast(duplicateMasterAgentForOrg())
 
       setProvisioning({ orgName: name, step: 'create' })
-      const created = await createOrganization({ name, location, agent_id })
+      const created = await holdAtLeast(createOrganization({ name, location, agent_id }))
       setCreateOpen(false)
       setNewName('')
       setNewAddress(INITIAL_ADDRESS)
@@ -257,13 +283,14 @@ export default function OrganizationsPage() {
       setProvisioning({ orgName: created.name, step: 'finalize' })
       let agentErr = null
       try {
-        await finalizeOrganizationAgent(created, { agent_id, master_agent })
+        await holdAtLeast(finalizeOrganizationAgent(created, { agent_id, master_agent }))
       } catch (agentError) {
         agentErr = agentError
+        await sleep(STEP_HOLD_MS)
       }
 
       setProvisioning({ orgName: created.name, step: 'refresh' })
-      await load({ keepToast: true })
+      await holdAtLeast(load({ keepToast: true }))
 
       setProvisioning({ orgName: created.name, step: 'done' })
       if (agentErr) {
@@ -271,7 +298,8 @@ export default function OrganizationsPage() {
       } else {
         showToast(`"${created.name}" created with a dedicated admissions agent`)
       }
-      setTimeout(() => setProvisioning(null), 700)
+      // Linger a beat on the done state so the user can see the knowledge-base bind in
+      setTimeout(() => setProvisioning(null), 2200)
     } catch (e) {
       setCreateErr(prev => ({ ...prev, form: e.message || 'Could not create.' }))
       setProvisioning(null)
@@ -307,6 +335,76 @@ export default function OrganizationsPage() {
       setRenameOrg(null); setRenameName('')
     } catch (e) { setRenameErr(e.message || 'Could not rename.') }
     finally { setRenaming(false) }
+  }
+
+  function openDelete(org) {
+    setDeleteOrg(org)
+    setDeleteConfirm('')
+    setDeleteErr('')
+  }
+
+  function closeDelete() {
+    if (deleting) return
+    setDeleteOrg(null)
+    setDeleteConfirm('')
+    setDeleteErr('')
+  }
+
+  async function handleDelete(e) {
+    e?.preventDefault?.()
+    if (!deleteOrg) return
+    if (deleteConfirm.trim().toLowerCase() !== deleteOrg.name.trim().toLowerCase()) {
+      setDeleteErr('Type the organization name exactly to confirm.')
+      return
+    }
+    setDeleting(true); setDeleteErr('')
+    try {
+      // Resolve the agent_id linked to this org BEFORE we drop the org row.
+      // Prefer the value from the org list; fall back to the local assignment store.
+      const linkedAgentId =
+        deleteOrg.agent_id ||
+        getOrgAgentAssignment(deleteOrg.org_id)?.agent_id ||
+        ''
+
+      const res = await deleteOrganization(deleteOrg.org_id)
+      setOrgs(prev => prev.filter(o => o.org_id !== deleteOrg.org_id))
+
+      // Cascade: remove the org's dedicated ElevenLabs agent.
+      let agentDeleted = false
+      let agentDeleteErr = ''
+      if (linkedAgentId) {
+        try {
+          await deleteAgent(linkedAgentId)
+          agentDeleted = true
+        } catch (err) {
+          agentDeleteErr = err?.message || 'agent deletion failed'
+        }
+      }
+      removeOrgAgentAssignment(deleteOrg.org_id)
+
+      const removed = res?.deleted || {}
+      const parts = ['users', 'contacts', 'conversations']
+        .map(k => removed[k] ? `${removed[k]} ${k}` : null)
+        .filter(Boolean)
+      if (agentDeleted) parts.push('1 agent')
+      const summary = parts.join(', ')
+
+      if (agentDeleteErr) {
+        showToast(
+          `"${deleteOrg.name}" deleted${summary ? ` (${summary})` : ''}, but ${agentDeleteErr}`,
+          'error',
+        )
+      } else {
+        showToast(summary
+          ? `"${deleteOrg.name}" deleted (${summary})`
+          : `"${deleteOrg.name}" deleted`)
+      }
+      setDeleteOrg(null); setDeleteConfirm('')
+    } catch (e) {
+      setDeleteErr(e.message || 'Could not delete.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   useEffect(() => {
@@ -461,10 +559,12 @@ export default function OrganizationsPage() {
                       key={org.org_id}
                       org={org}
                       isToggling={togglingId === org.org_id}
+                      canDelete={canDelete}
                       onSelect={() => navigate(`/app/organizations/${org.org_id}`)}
                       onRename={() => { setRenameOrg(org); setRenameName(org.name); setRenameErr('') }}
                       onArchive={() => setConfirmOrg(org)}
                       onRestore={() => performToggle(org)}
+                      onDelete={() => openDelete(org)}
                     />
                   ))}
                 </motion.div>
@@ -485,6 +585,7 @@ export default function OrganizationsPage() {
         }}
         title="New Organization"
         icon={Building2}
+        max="max-w-2xl"
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <Field
@@ -492,18 +593,20 @@ export default function OrganizationsPage() {
             onChange={e => setNewName(e.target.value)} placeholder="e.g. Acme University"
             autoFocus error={createErr.name}
           />
-          <Field
-            id="orgAddress1" label="Address line 1" value={newAddress.address1}
-            onChange={e => setNewAddress(a => ({ ...a, address1: e.target.value }))}
-            placeholder="Street, building, area"
-            error={createErr.address1}
-          />
-          <Field
-            id="orgAddress2" label="Address line 2 (optional)" value={newAddress.address2}
-            onChange={e => setNewAddress(a => ({ ...a, address2: e.target.value }))}
-            placeholder="Landmark, suite, floor"
-          />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field
+              id="orgAddress1" label="Address line 1" value={newAddress.address1}
+              onChange={e => setNewAddress(a => ({ ...a, address1: e.target.value }))}
+              placeholder="Street, building, area"
+              error={createErr.address1}
+            />
+            <Field
+              id="orgAddress2" label="Address line 2 (optional)" value={newAddress.address2}
+              onChange={e => setNewAddress(a => ({ ...a, address2: e.target.value }))}
+              placeholder="Landmark, suite, floor"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_140px]">
             <Field
               id="orgCity" label="City" value={newAddress.city}
               onChange={e => setNewAddress(a => ({ ...a, city: e.target.value }))}
@@ -516,16 +619,16 @@ export default function OrganizationsPage() {
               placeholder="Karnataka"
               error={createErr.state}
             />
+            <Field
+              id="orgPincode" label="Pincode" value={newAddress.pincode}
+              onChange={e => {
+                const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
+                setNewAddress(a => ({ ...a, pincode: v }))
+              }}
+              placeholder="560001"
+              error={createErr.pincode}
+            />
           </div>
-          <Field
-            id="orgPincode" label="Pincode" value={newAddress.pincode}
-            onChange={e => {
-              const v = e.target.value.replace(/[^0-9]/g, '').slice(0, 10)
-              setNewAddress(a => ({ ...a, pincode: v }))
-            }}
-            placeholder="560001"
-            error={createErr.pincode}
-          />
           {createErr.form && <p className="text-xs font-medium text-red-500">{createErr.form}</p>}
           <div className="flex gap-2.5 pt-1">
             <button
@@ -536,13 +639,13 @@ export default function OrganizationsPage() {
                 setNewAddress(INITIAL_ADDRESS)
                 setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
               }}
-              className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
+              className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
               Cancel
             </button>
             <motion.button
               type="submit" disabled={creating}
               whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white disabled:opacity-60"
+              className="flex flex-1 items-center justify-center gap-2 rounded-md py-3 text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
             >
               {creating ? <RefreshCw size={13} className="animate-spin" /> : <Plus size={14} />}
@@ -565,13 +668,13 @@ export default function OrganizationsPage() {
           />
           <div className="flex gap-2.5">
             <button type="button" onClick={() => { setRenameOrg(null); setRenameName(''); setRenameErr('') }}
-              className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
+              className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
               Cancel
             </button>
             <motion.button
               type="submit" disabled={renaming}
               whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white disabled:opacity-60"
+              className="flex flex-1 items-center justify-center gap-2 rounded-md py-3 text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
             >
               {renaming ? <RefreshCw size={13} className="animate-spin" /> : <Check size={14} />}
@@ -598,14 +701,14 @@ export default function OrganizationsPage() {
             </div>
             <div className="flex gap-2.5">
               <button onClick={() => setConfirmOrg(null)}
-                className="flex-1 rounded-2xl border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
+                className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50">
                 Cancel
               </button>
               <motion.button
                 onClick={() => performToggle(confirmOrg)}
                 disabled={togglingId === confirmOrg.org_id}
                 whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold text-white disabled:opacity-60"
+                className="flex flex-1 items-center justify-center gap-2 rounded-md py-3 text-sm font-semibold text-white disabled:opacity-60"
                 style={{ background: 'linear-gradient(135deg, #F59E0B, #EF4444)' }}
               >
                 {togglingId === confirmOrg.org_id
@@ -615,6 +718,64 @@ export default function OrganizationsPage() {
               </motion.button>
             </div>
           </div>
+        )}
+      </Modal>
+
+      {/* ── Delete confirm modal (super-admin only) ── */}
+      <Modal
+        open={!!deleteOrg}
+        onClose={closeDelete}
+        title="Delete Organization"
+        subtitle={deleteOrg?.org_id}
+        icon={Trash2}
+        iconBg="#FEF2F2"
+        iconFg="#B91C1C"
+      >
+        {deleteOrg && (
+          <form onSubmit={handleDelete} className="space-y-4">
+            <div className="rounded-md bg-red-50 px-4 py-3.5 text-sm text-red-900 ring-1 ring-red-100">
+              <p className="font-semibold">This action is permanent.</p>
+              <p className="mt-1 text-xs leading-relaxed text-red-800/85">
+                Deleting <span className="font-semibold">"{deleteOrg.name}"</span> will remove its
+                users, contacts, conversations, and refresh tokens. This cannot be undone.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="deleteConfirm" className="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                Type <span className="font-mono normal-case text-gray-700">{deleteOrg.name}</span> to confirm
+              </label>
+              <input
+                id="deleteConfirm"
+                type="text"
+                autoFocus
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder={deleteOrg.name}
+                className="w-full rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-100"
+              />
+              {deleteErr && <p className="mt-2 text-xs font-medium text-red-500">{deleteErr}</p>}
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={closeDelete}
+                disabled={deleting}
+                className="flex-1 rounded-md border border-gray-200 py-3 text-sm font-semibold text-gray-500 transition hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <motion.button
+                type="submit"
+                disabled={deleting || deleteConfirm.trim().toLowerCase() !== deleteOrg.name.trim().toLowerCase()}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-md bg-red-600 py-3 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleting ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? 'Deleting…' : 'Delete forever'}
+              </motion.button>
+            </div>
+          </form>
         )}
       </Modal>
 
@@ -630,7 +791,7 @@ export default function OrganizationsPage() {
             transition={{ type: 'spring', stiffness: 420, damping: 28 }}
             className="fixed top-8 right-8 z-50"
           >
-            <div className={`flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
+            <div className={`flex items-center gap-3 rounded-md px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
               }`}
               style={toast.type !== 'error' ? { boxShadow: '0 8px 32px rgba(0,0,0,0.28)' } : {}}
             >
@@ -701,7 +862,7 @@ function StatCard({ label, dot, value, note }) {
 
 function ChartCard({ title, subtitle, children }) {
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100">
+    <div className="rounded-md bg-white p-4 shadow-sm ring-1 ring-gray-100">
       <div className="mb-1">
         <h3 className="text-sm font-bold text-gray-900">{title}</h3>
         <p className="text-[11px] text-gray-400">{subtitle}</p>
@@ -721,7 +882,7 @@ function Legend({ dot, label, value }) {
   )
 }
 
-function OrgCard({ org, isToggling, onSelect, onRename, onArchive, onRestore }) {
+function OrgCard({ org, isToggling, canDelete, onSelect, onRename, onArchive, onRestore, onDelete }) {
   const c = palette(org.name)
   const [copied, setCopied] = useState(false)
 
@@ -815,6 +976,16 @@ function OrgCard({ org, isToggling, onSelect, onRename, onArchive, onRestore }) 
               {isToggling ? '…' : 'Restore'}
             </button>
           )}
+          {canDelete ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete?.(e); }}
+              disabled={isToggling}
+              title="Delete permanently"
+              className="flex items-center justify-center rounded-md border border-red-200 bg-white px-2.5 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 size={13} />
+            </button>
+          ) : null}
         </div>
       </div>
     </motion.div>
@@ -825,7 +996,7 @@ function EmptyState({ archived, search, onCreate }) {
   if (search) {
     return (
       <div className="flex flex-col items-center py-20 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-gray-100">
           <Search size={20} className="text-gray-300" />
         </div>
         <p className="text-sm font-semibold text-gray-700">No results for "{search}"</p>
@@ -834,7 +1005,7 @@ function EmptyState({ archived, search, onCreate }) {
   }
   return (
     <div className="flex flex-col items-center py-20 text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-md ring-1 ring-gray-100">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-white shadow-md ring-1 ring-gray-100">
         {archived ? <Archive size={22} className="text-gray-300" /> : <Building2 size={22} className="text-gray-300" />}
       </div>
       <p className="text-base font-semibold text-gray-800">
@@ -847,7 +1018,7 @@ function EmptyState({ archived, search, onCreate }) {
         <motion.button
           whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}
           onClick={onCreate}
-          className="mt-6 flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold text-white"
+          className="mt-6 flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold text-white"
           style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}
         >
           <Plus size={15} /> New Organization
@@ -859,14 +1030,82 @@ function EmptyState({ archived, search, onCreate }) {
 
 function ProvisioningOverlay({ state }) {
   const STEPS = [
-    { id: 'duplicate', label: 'Duplicating master agent', icon: Wand2 },
-    { id: 'create',    label: 'Creating organization',    icon: Building2 },
-    { id: 'finalize',  label: 'Finalizing agent',         icon: Sparkles },
-    { id: 'refresh',   label: 'Refreshing list',          icon: RefreshCw },
+    { id: 'duplicate', label: 'Drafting the first message' },
+    { id: 'create',    label: 'Writing the agent instructions' },
+    { id: 'finalize',  label: 'Choosing the LLM' },
+    { id: 'refresh',   label: 'Tuning the voice' },
   ]
   const order = ['duplicate', 'create', 'finalize', 'refresh', 'done']
   const currentIdx = state ? order.indexOf(state.step) : -1
+  const isDone = state?.step === 'done'
   const progress = state ? Math.min(100, ((currentIdx + 1) / order.length) * 100) : 0
+  const currentStep = STEPS[Math.min(currentIdx, STEPS.length - 1)] || STEPS[0]
+  const orgName = state?.orgName || 'Organization'
+
+  // 2x2 grid of modules — each card snaps into its slot when its step lands.
+  // Order: First message → Prompt → LLM → Voice. Knowledge base attaches at the end.
+  const STAGE_W = 300
+  const STAGE_H = 240
+  const CARD_W = 122
+  const CARD_H = 72
+  const COL_GAP = 16
+  const ROW_GAP = 18
+  const gridStartX = (STAGE_W - (CARD_W * 2 + COL_GAP)) / 2
+  const gridStartY = 8
+
+  const MODULES = [
+    {
+      id: 'message',
+      stepIdx: 0,
+      label: ['First', 'Message'],
+      tone: { from: '#0EA5E9', to: '#38BDF8' },
+      slotX: gridStartX,
+      slotY: gridStartY,
+      from: { x: -260, y: -140, rotate: -22 },
+    },
+    {
+      id: 'instructions',
+      stepIdx: 1,
+      label: ['Agent', 'Instructions'],
+      tone: { from: '#6366F1', to: '#8B5CF6' },
+      slotX: gridStartX + CARD_W + COL_GAP,
+      slotY: gridStartY,
+      from: { x: 260, y: -140, rotate: 22 },
+    },
+    {
+      id: 'llm',
+      stepIdx: 2,
+      label: ['LLM'],
+      tone: { from: '#A855F7', to: '#D946EF' },
+      slotX: gridStartX,
+      slotY: gridStartY + CARD_H + ROW_GAP,
+      from: { x: -260, y: 160, rotate: 18 },
+    },
+    {
+      id: 'voice',
+      stepIdx: 3,
+      label: ['Voice'],
+      tone: { from: '#EC4899', to: '#F472B6' },
+      slotX: gridStartX + CARD_W + COL_GAP,
+      slotY: gridStartY + CARD_H + ROW_GAP,
+      from: { x: 260, y: 160, rotate: -18 },
+    },
+  ]
+
+  // Knowledge base sits below the grid and "binds" the agent at the end
+  const KB_W = 180
+  const KB_H = 38
+  const kbX = (STAGE_W - KB_W) / 2
+  const kbY = gridStartY + CARD_H * 2 + ROW_GAP + 14
+
+  // Floating sparkles in the backdrop
+  const sparkles = Array.from({ length: 14 }, (_, i) => ({
+    id: i,
+    top: `${Math.random() * 100}%`,
+    left: `${Math.random() * 100}%`,
+    delay: Math.random() * 3,
+    size: 1 + Math.random() * 2,
+  }))
 
   return (
     <AnimatePresence>
@@ -875,149 +1114,324 @@ function ProvisioningOverlay({ state }) {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
         >
-          {/* Backdrop */}
+          {/* Cosmic backdrop */}
           <div
             className="absolute inset-0"
             style={{
-              background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.18), rgba(15,23,42,0.55) 60%)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
+              background:
+                'radial-gradient(ellipse 60% 60% at 50% 35%, rgba(139,92,246,0.30), transparent 65%),' +
+                ' radial-gradient(ellipse at center, rgba(67,56,202,0.55), rgba(8,12,28,0.92) 70%)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
             }}
           />
 
+          {/* Twinkling stars */}
+          <div className="absolute inset-0 overflow-hidden">
+            {sparkles.map((s) => (
+              <motion.span
+                key={s.id}
+                className="absolute rounded-full bg-white"
+                style={{ top: s.top, left: s.left, width: s.size, height: s.size }}
+                animate={{ opacity: [0.15, 0.9, 0.15], scale: [0.6, 1.2, 0.6] }}
+                transition={{ duration: 2.4 + Math.random() * 2, repeat: Infinity, delay: s.delay, ease: 'easeInOut' }}
+              />
+            ))}
+          </div>
+
           {/* Card */}
           <motion.div
-            initial={{ y: 22, scale: 0.96, opacity: 0 }}
+            initial={{ y: 24, scale: 0.94, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: 12, scale: 0.97, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-            className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/10"
+            exit={{ y: 16, scale: 0.96, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 26 }}
+            className="relative w-full max-w-md overflow-hidden rounded-lg shadow-[0_30px_80px_-20px_rgba(79,70,229,0.45)] ring-1 ring-white/10"
+            style={{
+              background:
+                'linear-gradient(160deg, #1E1B4B 0%, #312E81 35%, #4338CA 70%, #6D28D9 100%)',
+            }}
           >
-            {/* Top gradient header */}
+            {/* Card grain + glow */}
             <div
-              className="relative px-7 pt-7 pb-6 text-white"
-              style={{ background: 'linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #8B5CF6 100%)' }}
-            >
-              {/* animated dots */}
-              <div
-                className="absolute inset-0 opacity-20"
-                style={{
-                  backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-                  backgroundSize: '18px 18px',
-                }}
-              />
-              {/* orbiting glow */}
-              <motion.div
-                className="absolute -right-10 -top-10 h-40 w-40 rounded-full"
-                style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.35), transparent 70%)' }}
-                animate={{ scale: [1, 1.15, 1], opacity: [0.35, 0.6, 0.35] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-              />
+              className="pointer-events-none absolute inset-0 opacity-25"
+              style={{
+                backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.5) 0.7px, transparent 0.7px)',
+                backgroundSize: '20px 20px',
+              }}
+            />
+            <motion.div
+              className="pointer-events-none absolute -left-20 -top-20 h-60 w-60 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(167,139,250,0.55), transparent 65%)', filter: 'blur(20px)' }}
+              animate={{ x: [0, 20, 0], y: [0, 10, 0] }}
+              transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <motion.div
+              className="pointer-events-none absolute -bottom-24 -right-16 h-64 w-64 rounded-full"
+              style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.40), transparent 65%)', filter: 'blur(24px)' }}
+              animate={{ x: [0, -15, 0], y: [0, -10, 0] }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+            />
 
-              <div className="relative flex items-center gap-4">
-                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20 ring-1 ring-white/40 backdrop-blur">
-                  {state.step === 'done' ? (
-                    <motion.div
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 480, damping: 22 }}
-                    >
-                      <Check size={26} className="text-white" />
-                    </motion.div>
-                  ) : (
-                    <Building2 size={24} className="text-white" />
-                  )}
-                  {state.step !== 'done' && (
-                    <motion.span
-                      className="absolute inset-0 rounded-2xl ring-2 ring-white/60"
-                      animate={{ scale: [1, 1.18, 1], opacity: [0.8, 0, 0.8] }}
-                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeOut' }}
-                    />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-white/75">
-                    {state.step === 'done' ? 'All set' : 'Setting things up'}
-                  </p>
-                  <h3 className="mt-1 truncate text-lg font-bold leading-tight">
-                    {state.orgName || 'New organization'}
-                  </h3>
-                </div>
-              </div>
+            <div className="relative flex flex-col items-center px-7 pt-9 pb-7">
+              {/* Eyebrow */}
+              <motion.p
+                key={isDone ? 'done-eyebrow' : 'live-eyebrow'}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-[10.5px] font-bold uppercase tracking-[0.22em] text-purple-200/80"
+              >
+                {isDone ? 'Welcome aboard' : `Provisioning · ${orgName}`}
+              </motion.p>
+              <h2 className="mt-1.5 max-w-[22ch] text-center text-[22px] font-bold leading-tight tracking-tight text-white">
+                {isDone ? `${orgName} is ready to call` : `Customizing an agent for ${orgName}`}
+              </h2>
 
-              {/* progress bar */}
-              <div className="relative mt-5 h-1.5 w-full overflow-hidden rounded-full bg-white/20">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: 'linear-gradient(90deg, #fff, #C7D2FE)' }}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
-                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+              {/* Assembly stage — modules snap into a 2x2 grid */}
+              <div className="relative my-6" style={{ width: STAGE_W, height: STAGE_H }}>
+                {/* Workbench grid pattern */}
+                <div
+                  className="absolute inset-0 rounded-md"
+                  style={{
+                    background:
+                      'repeating-linear-gradient(0deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 24px),' +
+                      ' repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 24px)',
+                    border: '1px dashed rgba(255,255,255,0.12)',
+                  }}
                 />
-              </div>
-            </div>
 
-            {/* Steps */}
-            <div className="px-6 py-5">
-              <ol className="space-y-2">
-                {STEPS.map((s, idx) => {
-                  const status =
-                    state.step === 'done' || idx < currentIdx ? 'done'
-                      : idx === currentIdx ? 'active'
-                      : 'pending'
-                  const Icon = s.icon
+                {/* Slot ghost outlines */}
+                {MODULES.map((m) => (
+                  <div
+                    key={`slot-${m.id}`}
+                    className="absolute rounded-md border border-dashed border-white/15"
+                    style={{ left: m.slotX, top: m.slotY, width: CARD_W, height: CARD_H }}
+                  />
+                ))}
+
+                {/* Connection lines between landed cards */}
+                {currentIdx >= 1 && (
+                  <svg className="pointer-events-none absolute inset-0" width={STAGE_W} height={STAGE_H}>
+                    {/* Card-to-card connections — appear once 2+ are placed */}
+                    {[
+                      { from: 0, to: 1 },
+                      { from: 0, to: 2 },
+                      { from: 1, to: 3 },
+                      { from: 2, to: 3 },
+                    ]
+                      .filter((l) => currentIdx >= l.from && currentIdx >= l.to)
+                      .map((l, idx) => {
+                        const a = MODULES[l.from]
+                        const b = MODULES[l.to]
+                        return (
+                          <motion.line
+                            key={`line-${idx}`}
+                            x1={a.slotX + CARD_W / 2}
+                            y1={a.slotY + CARD_H / 2}
+                            x2={b.slotX + CARD_W / 2}
+                            y2={b.slotY + CARD_H / 2}
+                            stroke={isDone ? 'rgba(110,231,183,0.65)' : 'rgba(196,181,253,0.55)'}
+                            strokeWidth={1.2}
+                            strokeDasharray="3 4"
+                            initial={{ pathLength: 0, opacity: 0 }}
+                            animate={{ pathLength: 1, opacity: 1 }}
+                            transition={{ duration: 1, ease: 'easeOut', delay: 0.6 }}
+                          />
+                        )
+                      })}
+
+                    {/* Knowledge-base bindings — draw from KB up to each module on done */}
+                    {isDone && MODULES.map((m, idx) => {
+                      const x1 = kbX + KB_W / 2
+                      const y1 = kbY + KB_H / 2
+                      const x2 = m.slotX + CARD_W / 2
+                      const y2 = m.slotY + CARD_H / 2
+                      return (
+                        <motion.line
+                          key={`kb-line-${m.id}`}
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="rgba(110,231,183,0.85)"
+                          strokeWidth={1.4}
+                          initial={{ pathLength: 0, opacity: 0 }}
+                          animate={{ pathLength: 1, opacity: 1 }}
+                          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.4 + idx * 0.12 }}
+                        />
+                      )
+                    })}
+                  </svg>
+                )}
+
+                {/* Module cards */}
+                {MODULES.map((m) => {
+                  const placed = currentIdx >= m.stepIdx
                   return (
-                    <li
-                      key={s.id}
-                      className={`flex items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition ${
-                        status === 'active'
-                          ? 'border-indigo-200 bg-indigo-50/70'
-                          : status === 'done'
-                          ? 'border-emerald-100 bg-emerald-50/60'
-                          : 'border-gray-100 bg-gray-50/60'
-                      }`}
+                    <motion.div
+                      key={m.id}
+                      className="absolute overflow-hidden rounded-md bg-white shadow-lg"
+                      style={{
+                        width: CARD_W,
+                        height: CARD_H,
+                        left: m.slotX,
+                        top: m.slotY,
+                        transformOrigin: 'center',
+                      }}
+                      initial={{
+                        x: m.from.x,
+                        y: m.from.y,
+                        rotate: m.from.rotate,
+                        opacity: 0,
+                        scale: 0.8,
+                      }}
+                      animate={
+                        isDone
+                          ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1, boxShadow: '0 0 22px rgba(52,211,153,0.55)' }
+                          : placed
+                          ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }
+                          : { x: m.from.x, y: m.from.y, rotate: m.from.rotate, opacity: 0.55, scale: 0.8 }
+                      }
+                      transition={{
+                        type: 'spring',
+                        stiffness: 110,
+                        damping: 16,
+                        mass: 1.1,
+                        delay: placed ? 0.3 : 0,
+                      }}
                     >
-                      <span
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                          status === 'active'
-                            ? 'bg-indigo-600 text-white'
-                            : status === 'done'
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-white text-gray-400 ring-1 ring-gray-200'
-                        }`}
-                      >
-                        {status === 'done' ? (
-                          <Check size={14} />
-                        ) : status === 'active' ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Icon size={14} />
-                        )}
-                      </span>
-                      <span
-                        className={`text-sm font-semibold ${
-                          status === 'active'
-                            ? 'text-indigo-800'
-                            : status === 'done'
-                            ? 'text-emerald-700'
-                            : 'text-gray-500'
-                        }`}
-                      >
-                        {s.label}
-                      </span>
-                      {status === 'active' && (
-                        <span className="ml-auto text-[10px] font-bold uppercase tracking-widest text-indigo-500">
-                          In progress
-                        </span>
+                      {/* Top accent bar */}
+                      <div
+                        className="h-1.5 w-full"
+                        style={{ background: `linear-gradient(90deg, ${m.tone.from}, ${m.tone.to})` }}
+                      />
+                      <div className="flex h-[calc(100%-6px)] flex-col justify-center px-3 py-2">
+                        <div className="text-[11px] font-bold uppercase leading-tight tracking-wider text-gray-800">
+                          {m.label.map((line) => (
+                            <div key={line} className="truncate">{line}</div>
+                          ))}
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                          <div className="h-1 w-full rounded-full bg-gray-200" />
+                          <div className="h-1 w-2/3 rounded-full bg-gray-100" />
+                        </div>
+                      </div>
+
+                      {/* Land flash — pulse outline when card just settled */}
+                      {placed && !isDone && (
+                        <motion.span
+                          key={`flash-${m.id}-${currentIdx}`}
+                          className="pointer-events-none absolute inset-0 rounded-md ring-2"
+                          style={{ borderColor: m.tone.from }}
+                          initial={{ opacity: 0.85, scale: 1 }}
+                          animate={{ opacity: 0, scale: 1.18 }}
+                          transition={{ duration: 0.7, ease: 'easeOut' }}
+                        />
                       )}
-                    </li>
+                    </motion.div>
                   )
                 })}
-              </ol>
-              <p className="mt-4 text-center text-[11px] text-gray-400">
-                {state.step === 'done'
-                  ? 'Redirecting your view…'
-                  : 'Hang tight — this only takes a few seconds.'}
+
+                {/* Floating "incoming" hint trail */}
+                {!isDone && currentIdx < MODULES.length && (() => {
+                  const next = MODULES[Math.max(0, currentIdx + 1)]
+                  if (!next) return null
+                  return (
+                    <motion.div
+                      key={`trail-${next.id}`}
+                      className="pointer-events-none absolute h-1.5 w-1.5 rounded-full bg-white"
+                      style={{
+                        left: next.slotX + CARD_W / 2 - 3,
+                        top: next.slotY + CARD_H / 2 - 3,
+                        boxShadow: '0 0 14px rgba(255,255,255,0.95)',
+                      }}
+                      animate={{
+                        x: [next.from.x, 0],
+                        y: [next.from.y, 0],
+                        opacity: [0, 0.9, 0],
+                      }}
+                      transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  )
+                })()}
+
+                {/* Knowledge base — appears at the end and binds the agent together */}
+                {isDone && (
+                  <motion.div
+                    className="pointer-events-none absolute overflow-hidden rounded-md"
+                    style={{
+                      left: kbX,
+                      top: kbY,
+                      width: KB_W,
+                      height: KB_H,
+                      background: 'linear-gradient(135deg, #047857, #10B981)',
+                      boxShadow: '0 8px 28px rgba(16,185,129,0.55), 0 0 0 1px rgba(110,231,183,0.6) inset',
+                    }}
+                    initial={{ y: 60, opacity: 0, scale: 0.7 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 120, damping: 16, delay: 0.15 }}
+                  >
+                    <div className="flex h-full items-center justify-center gap-2 px-3">
+                      <motion.span
+                        className="h-1.5 w-1.5 rounded-full bg-emerald-200"
+                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-white">
+                        Knowledge linked
+                      </span>
+                    </div>
+                    {/* sweeping shimmer */}
+                    <motion.span
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background:
+                          'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%)',
+                      }}
+                      initial={{ x: '-100%' }}
+                      animate={{ x: '100%' }}
+                      transition={{ duration: 1.6, ease: 'easeInOut', delay: 0.6 }}
+                    />
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Active step text — animated swap */}
+              <div className="relative h-6 w-full overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={state.step}
+                    initial={{ y: 14, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -14, opacity: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="absolute inset-0 text-center text-[14px] font-semibold text-purple-100"
+                  >
+                    {isDone ? 'All set — taking you in…' : currentStep.label}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
+
+              {/* Step dots */}
+              <div className="mt-5 flex items-center gap-2">
+                {STEPS.map((s, idx) => {
+                  const dotState = isDone || idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : 'pending'
+                  return (
+                    <motion.span
+                      key={s.id}
+                      className={cn(
+                        'h-1.5 rounded-full transition',
+                        dotState === 'done' ? 'bg-emerald-300/90' : dotState === 'active' ? 'bg-white' : 'bg-white/25',
+                      )}
+                      animate={dotState === 'active' ? { width: 28 } : { width: 8 }}
+                      transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Progress label */}
+              <p className="mt-4 text-[10.5px] font-mono uppercase tracking-[0.22em] text-purple-200/65">
+                {Math.round(progress)}% · {state?.orgName || 'Organization'}
               </p>
             </div>
           </motion.div>

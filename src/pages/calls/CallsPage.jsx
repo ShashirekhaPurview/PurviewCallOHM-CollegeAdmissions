@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Building2, Check, ChevronDown, CircleAlert,
-  PhoneCall, RefreshCw, Search, X, Copy, Download, Bot, Variable,
+  PhoneCall, RefreshCw, Search, UserPlus, X, Copy, Download, Bot, Variable,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { getCurrentUser } from '../../api/auth/authService'
@@ -212,10 +212,18 @@ function OrgPicker({ onSelect }) {
             {filtered.map(o => {
               const c = palette(o.name)
               return (
-                <motion.button
+                <motion.div
                   key={o.org_id} whileHover={{ y: -3 }}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelect(o.org_id)}
-                  className="group flex flex-col rounded-lg bg-white p-5 text-left shadow-sm ring-1 ring-gray-100 transition hover:shadow-lg hover:ring-gray-200"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onSelect(o.org_id)
+                    }
+                  }}
+                  className="group flex cursor-pointer flex-col rounded-lg bg-white p-5 text-left shadow-sm ring-1 ring-gray-100 transition hover:shadow-lg hover:ring-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg" style={{ background: c.bg, color: c.fg }}>
@@ -245,7 +253,7 @@ function OrgPicker({ onSelect }) {
                       Open <ArrowRight size={12} />
                     </span>
                   </div>
-                </motion.button>
+                </motion.div>
               )
             })}
           </div>
@@ -281,6 +289,7 @@ const EXPORT_COLUMNS = [
 /* ─────────── calls list ─────────── */
 
 function CallsList({ orgId, isSuper, onBackToOrgs }) {
+  const navigate = useNavigate()
   const [contacts, setContacts] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -288,6 +297,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   const [search, setSearch] = useState('')
   const [statusFilter] = useState('new')
   const [orgName, setOrgName] = useState('')
+  const [orgLocation, setOrgLocation] = useState('')
   const [toast, setToast] = useState(null)
 
   const [selected, setSelected] = useState(() => new Set())
@@ -313,15 +323,16 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   }, [toast])
 
   useEffect(() => {
-    if (!isSuper) return
+    if (!orgId) return
     let cancelled = false
     listOrganizations({ limit: 100 }).then(d => {
       if (cancelled) return
       const o = (d.items ?? []).find(x => x.org_id === orgId)
       setOrgName(o?.name || '')
+      setOrgLocation(o?.location || '')
     }).catch(() => { })
     return () => { cancelled = true }
-  }, [isSuper, orgId])
+  }, [orgId])
 
   async function loadAgentConfig() {
     if (!orgId) {
@@ -405,9 +416,33 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
 
   const visibleIds = filtered.map(c => c.contact_id)
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id))
-  const dynamicVariableKeys = Object.keys(dynamicVariables)
-  const missingDynamicVariables = dynamicVariableKeys.filter((key) => !String(dynamicVariables[key] || '').trim())
-  const callDisabled = selected.size === 0 || loadingAgent || !!agentError || !agentId || missingDynamicVariables.length > 0
+  const callDisabled = selected.size === 0 || loadingAgent || !!agentError || !agentId
+
+  /**
+   * Build the dynamic_variables map sent for a single contact.
+   * Combines:
+   *   - agent-config org constants (branches_offered, gpa_thresholds, scholarship_score,
+   *     campus_facilities, housing_policy, extracurricular_activities, etc.)
+   *   - org meta (organization_name, organization_location, org_id)
+   *   - per-candidate fields (contact_full_name, contact_email, contact_phone_number,
+   *     contact_city, contact_state, contact_twelfth_score, contact_twelfth_board, contact_id)
+   */
+  function buildVariablesFor(contact) {
+    return {
+      ...dynamicVariables,
+      organization_name: orgName || '',
+      organization_location: orgLocation || '',
+      org_id: orgId || '',
+      contact_id: contact.contact_id || '',
+      contact_full_name: contact.full_name || '',
+      contact_email: contact.email || '',
+      contact_phone_number: contact.full_phone || '',
+      contact_city: contact.city || '',
+      contact_state: contact.state || '',
+      contact_twelfth_score: contact.twelfth_score == null ? '' : String(contact.twelfth_score),
+      contact_twelfth_board: contact.twelfth_board || '',
+    }
+  }
 
   function toggleOne(id) {
     setSelected(prev => {
@@ -440,22 +475,54 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
       showToast(agentError, 'error')
       return
     }
-    if (missingDynamicVariables.length > 0) {
-      showToast(`Fill all dynamic variables before calling: ${missingDynamicVariables.join(', ')}`, 'error')
-      return
-    }
+
+    const byId = new Map(contacts.map(c => [c.contact_id, c]))
+    const targets = ids
+      .map(id => byId.get(id))
+      .filter(Boolean)
+
     setCalling(true)
     try {
-      const data = await bulkCallContacts(ids, {
-        orgId: isSuper ? orgId : undefined,
-        agentId,
-        dynamicVariables,
+      // Fan out one call per contact so each gets its own merged dynamic_variables.
+      const settled = await Promise.allSettled(
+        targets.map(contact =>
+          bulkCallContacts([contact.contact_id], {
+            orgId: isSuper ? orgId : undefined,
+            agentId,
+            dynamicVariables: buildVariablesFor(contact),
+          }),
+        ),
+      )
+
+      // Flatten the per-contact responses back into the existing results shape.
+      const flatResults = []
+      let succeeded = 0
+      let failed = 0
+      settled.forEach((s, idx) => {
+        const contact = targets[idx]
+        if (s.status === 'fulfilled') {
+          const inner = Array.isArray(s.value?.results) && s.value.results.length > 0
+            ? s.value.results[0]
+            : { contact_id: contact.contact_id, success: true, message: 'Call placed.' }
+          flatResults.push(inner)
+          if (inner.success) succeeded += 1
+          else failed += 1
+        } else {
+          flatResults.push({
+            contact_id: contact.contact_id,
+            success: false,
+            message: s.reason?.message || 'Call failed.',
+          })
+          failed += 1
+        }
       })
-      setResults(data)
+
+      setResults({ results: flatResults, total: targets.length, succeeded, failed })
       setConfirmOpen(false)
-      const ok = data.succeeded ?? 0
-      const fail = data.failed ?? 0
-      showToast(`${ok} placed${fail ? `, ${fail} failed` : ''}`, fail > 0 && ok === 0 ? 'error' : 'success')
+      showToast(
+        `${succeeded} placed${failed ? `, ${failed} failed` : ''}`,
+        failed > 0 && succeeded === 0 ? 'error' : 'success',
+      )
     } catch (e) {
       showToast(e.message || 'Bulk call failed.', 'error')
     } finally {
@@ -552,75 +619,32 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
           </div>
         </div>
 
-        <div className="mb-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                <Bot size={18} />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-gray-900">Calling Agent</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Calls from this page use the configured admissions agent and pass these runtime variables into the Plivo flow.
-                </p>
-                <p className="mt-2 font-mono text-[11px] text-gray-400">{agentId || 'Agent ID missing in .env'}</p>
-              </div>
+        {/* Agent strip — one line summary, no manual variable editing */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
+              <Bot size={14} />
             </div>
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-semibold text-gray-900">
+                {loadingAgent ? 'Loading agent…' : agentError ? 'Agent unavailable' : agentName || 'Calling agent'}
+              </p>
+              <p className="truncate font-mono text-[11px] text-gray-400">
+                {agentError ? agentError : (agentId || 'Agent ID missing')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-gray-500">
+            <Variable size={12} className="text-indigo-500" />
+            <span>Variables will be filled per candidate at call time</span>
             <button
               onClick={loadAgentConfig}
-              className="rounded-2xl border border-gray-200 bg-white p-2.5 text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-gray-700"
-              title="Refresh agent details"
+              className="ml-1 rounded-md border border-gray-200 bg-white p-1.5 text-gray-500 transition hover:bg-gray-50"
+              title="Refresh agent"
             >
-              <RefreshCw size={15} className={loadingAgent ? 'animate-spin' : ''} />
+              <RefreshCw size={12} className={loadingAgent ? 'animate-spin' : ''} />
             </button>
           </div>
-
-          {agentName ? (
-            <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
-              <p className="text-sm font-semibold text-gray-900">{agentName}</p>
-              <p className="mt-1 text-xs text-gray-500">This is the only agent exposed in this project.</p>
-            </div>
-          ) : null}
-
-          {agentError ? (
-            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {agentError}
-            </div>
-          ) : loadingAgent ? (
-            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              Loading configured agent details...
-            </div>
-          ) : dynamicVariableKeys.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center">
-              <p className="text-sm font-medium text-gray-600">No dynamic variables configured for this agent.</p>
-              <p className="mt-1 text-sm text-gray-400">Calls will use the saved agent settings without extra runtime values.</p>
-            </div>
-          ) : (
-            <div className="mt-4">
-              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
-                <Variable size={15} className="text-indigo-500" />
-                Runtime Dynamic Variables
-              </div>
-              {missingDynamicVariables.length > 0 ? (
-                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Fill required values before placing calls: {missingDynamicVariables.join(', ')}
-                </div>
-              ) : null}
-              <div className="grid gap-4 md:grid-cols-2">
-                {dynamicVariableKeys.map((key) => (
-                  <div key={key}>
-                    <label className="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-500">{key}</label>
-                    <input
-                      value={dynamicVariables[key] || ''}
-                      onChange={(e) => setDynamicVariables((prev) => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-400"
-                      placeholder={`Enter ${key}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Filters */}
@@ -662,15 +686,32 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center px-6 py-16 text-center">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-white shadow-sm ring-1 ring-gray-100">
+              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-md bg-white shadow-sm ring-1 ring-gray-100">
                 <PhoneCall size={20} className="text-gray-300" />
               </div>
               <p className="text-base font-semibold text-gray-800">
                 {search ? 'No contacts match your search' : 'No new contacts to call'}
               </p>
               <p className="mt-1 text-sm text-gray-400">
-                {search ? 'Try clearing your search.' : 'Only contacts with status "new" can be called.'}
+                {search
+                  ? 'Try clearing your search.'
+                  : 'Add a contact to start calling. Only contacts with status "new" can be called.'}
               </p>
+              {!search && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const params = new URLSearchParams({ create: '1' })
+                    if (isSuper && orgId) params.set('org', orgId)
+                    navigate(`/app/contacts?${params.toString()}`)
+                  }}
+                  className="mt-5 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                  style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}
+                >
+                  <UserPlus size={14} />
+                  Add a contact
+                </motion.button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -762,11 +803,9 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             <p className="mt-1 text-xs text-emerald-800/80">
               The AI agent will dial each number in parallel. You'll see per-contact results below.
             </p>
-            {dynamicVariableKeys.length > 0 && (
-              <p className="mt-2 text-xs text-emerald-800/80">
-                Passing {dynamicVariableKeys.length} dynamic variable{dynamicVariableKeys.length === 1 ? '' : 's'} with this call batch.
-              </p>
-            )}
+            <p className="mt-2 text-xs text-emerald-800/80">
+              Each call carries that contact's personalized variables (name, phone, location, score, board, plus your org-level config).
+            </p>
           </div>
           <div className="flex gap-2.5">
             <button

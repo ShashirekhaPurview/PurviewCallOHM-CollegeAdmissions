@@ -42,3 +42,12 @@ export function activateOrganization(orgId) {
 export function deactivateOrganization(orgId) {
   return api.post(`/orgs/${orgId}/deactivate`, null, withAuth())
 }
+
+/**
+ * DELETE /orgs/:org_id - permanently deletes an organization and its data.
+ * Returns { org_id, deleted: { refresh_tokens, users, contacts, conversations, organizations } }
+ * Super-admin only.
+ */
+export function deleteOrganization(orgId) {
+  return api.del(`/orgs/${orgId}`, withAuth())
+}
