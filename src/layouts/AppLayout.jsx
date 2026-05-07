@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, UserCog, Target, Phone, BarChart3, CalendarCheck,
-  LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft, CircleAlert, RefreshCw,
+  LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft, CircleAlert, RefreshCw, Bot,
 } from 'lucide-react'
 import { logout, getCurrentUser } from '../api/auth/authService'
 
@@ -38,6 +38,7 @@ function getNav(role) {
       { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
       { label: 'Organizations', icon: Building2, href: '/app/organizations' },
       { label: 'Contacts', icon: Users, href: '/app/contacts' },
+      { label: 'Agent', icon: Bot, href: '/app/agents' },
       { label: 'Calls', icon: Phone, href: '/app/calls' },
       { label: 'Conversations', icon: MessageSquare, href: '/app/conversations' },
     ]
@@ -46,6 +47,7 @@ function getNav(role) {
   const base = [
     { label: 'Analytics', icon: BarChart3, href: '/app/analytics' },
     { label: 'Contacts', icon: Users, href: '/app/contacts' },
+    { label: 'Agent', icon: Bot, href: '/app/agents' },
     { label: 'Calls', icon: Phone, href: '/app/calls' },
     { label: 'Conversations', icon: MessageSquare, href: '/app/conversations' },
   ]

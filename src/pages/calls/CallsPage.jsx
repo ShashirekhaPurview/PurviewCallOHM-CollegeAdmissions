@@ -3,13 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, ArrowRight, Building2, Check, ChevronDown, CircleAlert,
-  PhoneCall, RefreshCw, Search, X, Copy, Download,
+  PhoneCall, RefreshCw, Search, X, Copy, Download, Bot, Variable,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
 import { listContacts } from '../../api/contacts/contactService'
 import { bulkCallContacts, getCallStatus } from '../../api/agents/agentService'
+import { getOrganizationAgentContext } from '../../api/agents/orgScopedAgentService'
 
 /* ─────────── shared meta ─────────── */
 
@@ -43,6 +44,12 @@ function fmtTime(v) {
   if (!v) return '-'
   const d = new Date(v)
   return isNaN(d) ? v : new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(d)
+}
+
+function toDynamicVariableState(placeholders = {}) {
+  return Object.fromEntries(
+    Object.entries(placeholders || {}).map(([key, value]) => [key, value == null ? '' : String(value)]),
+  )
 }
 
 /* ─────────── primitives ─────────── */
@@ -287,6 +294,11 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [calling, setCalling] = useState(false)
   const [results, setResults] = useState(null) // { results, total, succeeded, failed }
+  const [agentName, setAgentName] = useState('')
+  const [agentId, setAgentId] = useState('')
+  const [dynamicVariables, setDynamicVariables] = useState({})
+  const [loadingAgent, setLoadingAgent] = useState(false)
+  const [agentError, setAgentError] = useState('')
 
   /* ── export state ── */
   const [exportOpen, setExportOpen] = useState(false)
@@ -310,6 +322,39 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
     }).catch(() => { })
     return () => { cancelled = true }
   }, [isSuper, orgId])
+
+  async function loadAgentConfig() {
+    if (!orgId) {
+      setAgentError('Organization ID is required to load the calling agent.')
+      setAgentName('')
+      setAgentId('')
+      setDynamicVariables({})
+      return
+    }
+
+    setLoadingAgent(true)
+    setAgentError('')
+    try {
+      const context = await getOrganizationAgentContext(orgId)
+      const data = context.agent
+      const placeholders = data?.conversation_config?.agent?.dynamic_variables?.dynamic_variable_placeholders || {}
+      setAgentId(context.agentId || '')
+      setAgentName(data?.name || '')
+      setDynamicVariables(toDynamicVariableState(placeholders))
+    } catch (e) {
+      setAgentError(e.message || 'Failed to load assigned agent.')
+      setAgentName('')
+      setAgentId('')
+      setDynamicVariables({})
+    } finally {
+      setLoadingAgent(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAgentConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId])
 
   const queryArgs = useMemo(() => ({
     orgId: orgId || undefined,
@@ -360,6 +405,9 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
 
   const visibleIds = filtered.map(c => c.contact_id)
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id))
+  const dynamicVariableKeys = Object.keys(dynamicVariables)
+  const missingDynamicVariables = dynamicVariableKeys.filter((key) => !String(dynamicVariables[key] || '').trim())
+  const callDisabled = selected.size === 0 || loadingAgent || !!agentError || !agentId || missingDynamicVariables.length > 0
 
   function toggleOne(id) {
     setSelected(prev => {
@@ -384,9 +432,25 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
   async function handleConfirmCall() {
     const ids = Array.from(selected)
     if (ids.length === 0) return
+    if (!agentId) {
+      showToast('Configured agent ID is missing.', 'error')
+      return
+    }
+    if (agentError) {
+      showToast(agentError, 'error')
+      return
+    }
+    if (missingDynamicVariables.length > 0) {
+      showToast(`Fill all dynamic variables before calling: ${missingDynamicVariables.join(', ')}`, 'error')
+      return
+    }
     setCalling(true)
     try {
-      const data = await bulkCallContacts(ids, isSuper ? orgId : undefined)
+      const data = await bulkCallContacts(ids, {
+        orgId: isSuper ? orgId : undefined,
+        agentId,
+        dynamicVariables,
+      })
       setResults(data)
       setConfirmOpen(false)
       const ok = data.succeeded ?? 0
@@ -474,7 +538,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              disabled={selected.size === 0}
+              disabled={callDisabled}
               onClick={() => setConfirmOpen(true)}
               className="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
@@ -486,6 +550,77 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
               )}
             </motion.button>
           </div>
+        </div>
+
+        <div className="mb-5 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <Bot size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Calling Agent</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Calls from this page use the configured admissions agent and pass these runtime variables into the Plivo flow.
+                </p>
+                <p className="mt-2 font-mono text-[11px] text-gray-400">{agentId || 'Agent ID missing in .env'}</p>
+              </div>
+            </div>
+            <button
+              onClick={loadAgentConfig}
+              className="rounded-2xl border border-gray-200 bg-white p-2.5 text-gray-500 shadow-sm transition hover:bg-gray-50 hover:text-gray-700"
+              title="Refresh agent details"
+            >
+              <RefreshCw size={15} className={loadingAgent ? 'animate-spin' : ''} />
+            </button>
+          </div>
+
+          {agentName ? (
+            <div className="mt-4 rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-gray-100">
+              <p className="text-sm font-semibold text-gray-900">{agentName}</p>
+              <p className="mt-1 text-xs text-gray-500">This is the only agent exposed in this project.</p>
+            </div>
+          ) : null}
+
+          {agentError ? (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {agentError}
+            </div>
+          ) : loadingAgent ? (
+            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              Loading configured agent details...
+            </div>
+          ) : dynamicVariableKeys.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center">
+              <p className="text-sm font-medium text-gray-600">No dynamic variables configured for this agent.</p>
+              <p className="mt-1 text-sm text-gray-400">Calls will use the saved agent settings without extra runtime values.</p>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <Variable size={15} className="text-indigo-500" />
+                Runtime Dynamic Variables
+              </div>
+              {missingDynamicVariables.length > 0 ? (
+                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Fill required values before placing calls: {missingDynamicVariables.join(', ')}
+                </div>
+              ) : null}
+              <div className="grid gap-4 md:grid-cols-2">
+                {dynamicVariableKeys.map((key) => (
+                  <div key={key}>
+                    <label className="mb-2 block text-[11px] font-semibold uppercase tracking-widest text-gray-500">{key}</label>
+                    <input
+                      value={dynamicVariables[key] || ''}
+                      onChange={(e) => setDynamicVariables((prev) => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-indigo-400"
+                      placeholder={`Enter ${key}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -627,6 +762,11 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             <p className="mt-1 text-xs text-emerald-800/80">
               The AI agent will dial each number in parallel. You'll see per-contact results below.
             </p>
+            {dynamicVariableKeys.length > 0 && (
+              <p className="mt-2 text-xs text-emerald-800/80">
+                Passing {dynamicVariableKeys.length} dynamic variable{dynamicVariableKeys.length === 1 ? '' : 's'} with this call batch.
+              </p>
+            )}
           </div>
           <div className="flex gap-2.5">
             <button
@@ -636,7 +776,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
               Cancel
             </button>
             <motion.button
-              onClick={handleConfirmCall} disabled={calling}
+              onClick={handleConfirmCall} disabled={calling || callDisabled}
               whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
               className="flex flex-1 items-center justify-center gap-2 rounded-md py-3 text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}

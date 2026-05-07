@@ -12,9 +12,14 @@ function withAuth(options = {}) {
  * Triggers calls for the given contact_ids.
  * Returns { results: [{ contact_id, success, message, triggered_at, plivo_call_id }], total, succeeded, failed }
  */
-export function bulkCallContacts(contactIds, orgId) {
+export function bulkCallContacts(contactIds, options = {}) {
+  const normalized = typeof options === 'string' ? { orgId: options } : options
   const body = { contact_ids: contactIds }
-  if (orgId) body.org_id = orgId
+  if (normalized.orgId) body.org_id = normalized.orgId
+  if (normalized.agentId) body.agent_id = normalized.agentId
+  if (normalized.dynamicVariables && Object.keys(normalized.dynamicVariables).length > 0) {
+    body.dynamic_variables = normalized.dynamicVariables
+  }
   return api.post('/agents/contacts/bulk-call', body, withAuth())
 }
 

@@ -9,6 +9,11 @@ import {
   activateOrganization, createOrganization, deactivateOrganization,
   listOrganizations, updateOrganization,
 } from '../../api/orgs/orgService'
+import {
+  duplicateMasterAgentForOrg,
+  finalizeOrganizationAgent,
+} from '../../api/agents/orgScopedAgentService'
+import { renameOrgAgentAssignment } from '../../api/orgs/orgAgentAssignmentStore'
 
 /* ───────────── helpers ───────────── */
 
@@ -239,11 +244,18 @@ export default function OrganizationsPage() {
     setCreating(true)
     setCreateErr({ name: '', address1: '', city: '', state: '', pincode: '', form: '' })
     try {
-      const created = await createOrganization({ name, location })
+      const { agent_id, master_agent } = await duplicateMasterAgentForOrg()
+
+      const created = await createOrganization({ name, location, agent_id })
       setCreateOpen(false)
       setNewName('')
       setNewAddress(INITIAL_ADDRESS)
-      showToast(`"${created.name}" created`)
+      try {
+        await finalizeOrganizationAgent(created, { agent_id, master_agent })
+        showToast(`"${created.name}" created with a dedicated admissions agent`)
+      } catch (agentError) {
+        showToast(`"${created.name}" created, but agent setup failed: ${agentError.message || 'Unknown error'}`, 'error')
+      }
       await load({ keepToast: true })
     } catch (e) {
       setCreateErr(prev => ({ ...prev, form: e.message || 'Could not create.' }))
@@ -273,6 +285,7 @@ export default function OrganizationsPage() {
     setRenaming(true); setRenameErr('')
     try {
       const updated = await updateOrganization(renameOrg.org_id, { name: renameName.trim() })
+      renameOrgAgentAssignment(renameOrg.org_id, updated.name)
       setOrgs(prev => prev.map(o => o.org_id === renameOrg.org_id ? { ...o, ...updated } : o))
       showToast(`Renamed to "${updated.name}"`)
       setRenameOrg(null); setRenameName('')

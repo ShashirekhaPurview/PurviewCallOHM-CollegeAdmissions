@@ -1,3 +1,16 @@
+for building and deploying a project
+1. login to the firebase account - (purview2026@gmail.com) 
+logout from the existing account using the command - firebase logout 
+login to the required account using the command - firebase login 
+2. once login is successful then build the project using command - npm run build
+3. then deploy the project using command - firebase deploy --only hosting
+ 
+
+
+
+
+
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

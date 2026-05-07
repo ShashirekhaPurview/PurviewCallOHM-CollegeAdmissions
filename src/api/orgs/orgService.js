@@ -23,7 +23,7 @@ export function getOrganization(orgId) {
   return api.get(`/orgs/${orgId}`, withAuth())
 }
 
-/** POST /orgs - payload: { name, location } */
+/** POST /orgs - payload: { name, location, agent_id } */
 export function createOrganization(payload) {
   return api.post('/orgs', payload, withAuth())
 }

@@ -16,6 +16,7 @@ import AnalyticsPage from './pages/analytics/AnalyticsOverviewPage'
 import { getSession } from './api/auth/authService'
 import OrganizationDetailsPage from './pages/superadmin/OrganizationDetailsPage'
 import { RouteScrollRestoration } from './utils/homeNavigation'
+import AgentPage from './pages/agents/AgentPage'
 
 function AppRoutes() {
   const session = getSession()
@@ -41,6 +42,7 @@ function AppRoutes() {
           element={role === 'org_admin' ? <UsersPage /> : <Navigate to="/app/analytics" replace />}
         />
         <Route path="contacts"   element={<ContactsPage />} />
+        <Route path="agents"     element={<AgentPage />} />
         <Route path="calls"      element={<CallsPage />} />
         <Route path="conversations" element={<ConversationsPage />} />
         <Route path="analytics"  element={<AnalyticsPage />} />

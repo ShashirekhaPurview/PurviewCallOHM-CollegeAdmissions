@@ -10,6 +10,7 @@ import {
 } from '../../api/users/userService'
 import { getOrganization, updateOrganization, deactivateOrganization, activateOrganization } from '../../api/orgs/orgService'
 import { getCurrentUser } from '../../api/auth/authService'
+import { renameOrgAgentAssignment } from '../../api/orgs/orgAgentAssignmentStore'
 
 /* ───────── helpers ───────── */
 
@@ -520,6 +521,7 @@ export default function OrganizationDetailsPage() {
     setRenaming(true)
     try {
       const updated = await updateOrganization(orgId, { name: renameName.trim() })
+      renameOrgAgentAssignment(orgId, updated.name)
       setOrg(updated)
       showToast(`Renamed to "${updated.name}"`)
     } catch (e) {
