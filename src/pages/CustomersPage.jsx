@@ -52,18 +52,18 @@ const TESTIMONIALS = [
 ]
 
 const COLLEGES = [
-  { name: 'Stanley College',     logo: '/college_logos/stanley.png' },
-  { name: 'CBIT',                logo: '/college_logos/CBIT-LOGO-2023.png' },
-  { name: 'Vasavi College',      logo: '/college_logos/vasavi.jpg' },
-  { name: 'VNR VJIET',           logo: '/college_logos/vnrvjit.png' },
-  { name: 'VJIT',                logo: '/college_logos/vjit.png' },
-  { name: 'Anurag University',   logo: '/college_logos/anurag.png' },
-  { name: 'KL University',       logo: '/college_logos/klu.png' },
-  { name: 'Malla Reddy',         logo: '/college_logos/malla reddy.png' },
-  { name: 'MLRITM',              logo: '/college_logos/mlritm.png' },
-  { name: 'Geethanjali',         logo: '/college_logos/geetanjali.jpg' },
-  { name: 'IARE',                logo: '/college_logos/IARE.jpg' },
-  { name: 'Narayanamma',         logo: '/college_logos/narayanammma.png' },
+  { name: 'Stanley College', logo: '/college_logos/stanley.png' },
+  { name: 'CBIT', logo: '/college_logos/CBIT-LOGO-2023.png' },
+  { name: 'Vasavi College', logo: '/college_logos/vasavi.jpg' },
+  { name: 'VNR VJIET', logo: '/college_logos/vnrvjit.png' },
+  { name: 'VJIT', logo: '/college_logos/vjit.png' },
+  { name: 'Anurag University', logo: '/college_logos/anurag.png' },
+  { name: 'KL University', logo: '/college_logos/klu.png' },
+  { name: 'Malla Reddy', logo: '/college_logos/malla reddy.png' },
+  { name: 'MLRITM', logo: '/college_logos/mlritm.png' },
+  { name: 'Geethanjali', logo: '/college_logos/geetanjali.jpg' },
+  { name: 'IARE', logo: '/college_logos/IARE.jpg' },
+  { name: 'Narayanamma', logo: '/college_logos/narayanammma.png' },
 ]
 
 const fade = (delay = 0) => ({
@@ -129,7 +129,7 @@ export default function CustomersPage() {
             margin: '0 auto', lineHeight: 1.65,
           }}
         >
-          From single-campus colleges to multi-institute groups — CallOHM
+          From single-campus colleges to multi-institute groups - CallOHM
           connects engineering admissions teams to 12th-pass students at scale.
         </motion.p>
       </section>

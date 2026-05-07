@@ -919,8 +919,8 @@ function OrgCard({ org, isToggling, canDelete, onSelect, onRename, onArchive, on
           </div>
           <span
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${org.is_active
-                ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
-                : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'
+              ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
+              : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200'
               }`}
           >
             <span
@@ -1031,9 +1031,9 @@ function EmptyState({ archived, search, onCreate }) {
 function ProvisioningOverlay({ state }) {
   const STEPS = [
     { id: 'duplicate', label: 'Drafting the first message' },
-    { id: 'create',    label: 'Writing the agent instructions' },
-    { id: 'finalize',  label: 'Choosing the LLM' },
-    { id: 'refresh',   label: 'Tuning the voice' },
+    { id: 'create', label: 'Writing the agent instructions' },
+    { id: 'finalize', label: 'Choosing the LLM' },
+    { id: 'refresh', label: 'Tuning the voice' },
   ]
   const order = ['duplicate', 'create', 'finalize', 'refresh', 'done']
   const currentIdx = state ? order.indexOf(state.step) : -1
@@ -1042,7 +1042,7 @@ function ProvisioningOverlay({ state }) {
   const currentStep = STEPS[Math.min(currentIdx, STEPS.length - 1)] || STEPS[0]
   const orgName = state?.orgName || 'Organization'
 
-  // 2x2 grid of modules — each card snaps into its slot when its step lands.
+  // 2x2 grid of modules - each card snaps into its slot when its step lands.
   // Order: First message → Prompt → LLM → Voice. Knowledge base attaches at the end.
   const STAGE_W = 300
   const STAGE_H = 240
@@ -1186,7 +1186,7 @@ function ProvisioningOverlay({ state }) {
                 {isDone ? `${orgName} is ready to call` : `Customizing an agent for ${orgName}`}
               </h2>
 
-              {/* Assembly stage — modules snap into a 2x2 grid */}
+              {/* Assembly stage - modules snap into a 2x2 grid */}
               <div className="relative my-6" style={{ width: STAGE_W, height: STAGE_H }}>
                 {/* Workbench grid pattern */}
                 <div
@@ -1211,7 +1211,7 @@ function ProvisioningOverlay({ state }) {
                 {/* Connection lines between landed cards */}
                 {currentIdx >= 1 && (
                   <svg className="pointer-events-none absolute inset-0" width={STAGE_W} height={STAGE_H}>
-                    {/* Card-to-card connections — appear once 2+ are placed */}
+                    {/* Card-to-card connections - appear once 2+ are placed */}
                     {[
                       { from: 0, to: 1 },
                       { from: 0, to: 2 },
@@ -1239,7 +1239,7 @@ function ProvisioningOverlay({ state }) {
                         )
                       })}
 
-                    {/* Knowledge-base bindings — draw from KB up to each module on done */}
+                    {/* Knowledge-base bindings - draw from KB up to each module on done */}
                     {isDone && MODULES.map((m, idx) => {
                       const x1 = kbX + KB_W / 2
                       const y1 = kbY + KB_H / 2
@@ -1288,8 +1288,8 @@ function ProvisioningOverlay({ state }) {
                         isDone
                           ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1, boxShadow: '0 0 22px rgba(52,211,153,0.55)' }
                           : placed
-                          ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }
-                          : { x: m.from.x, y: m.from.y, rotate: m.from.rotate, opacity: 0.55, scale: 0.8 }
+                            ? { x: 0, y: 0, rotate: 0, opacity: 1, scale: 1, boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }
+                            : { x: m.from.x, y: m.from.y, rotate: m.from.rotate, opacity: 0.55, scale: 0.8 }
                       }
                       transition={{
                         type: 'spring',
@@ -1316,7 +1316,7 @@ function ProvisioningOverlay({ state }) {
                         </div>
                       </div>
 
-                      {/* Land flash — pulse outline when card just settled */}
+                      {/* Land flash - pulse outline when card just settled */}
                       {placed && !isDone && (
                         <motion.span
                           key={`flash-${m.id}-${currentIdx}`}
@@ -1354,7 +1354,7 @@ function ProvisioningOverlay({ state }) {
                   )
                 })()}
 
-                {/* Knowledge base — appears at the end and binds the agent together */}
+                {/* Knowledge base - appears at the end and binds the agent together */}
                 {isDone && (
                   <motion.div
                     className="pointer-events-none absolute overflow-hidden rounded-md"
@@ -1395,7 +1395,7 @@ function ProvisioningOverlay({ state }) {
                 )}
               </div>
 
-              {/* Active step text — animated swap */}
+              {/* Active step text - animated swap */}
               <div className="relative h-6 w-full overflow-hidden">
                 <AnimatePresence mode="wait">
                   <motion.p
@@ -1406,7 +1406,7 @@ function ProvisioningOverlay({ state }) {
                     transition={{ duration: 0.35, ease: 'easeOut' }}
                     className="absolute inset-0 text-center text-[14px] font-semibold text-purple-100"
                   >
-                    {isDone ? 'All set — taking you in…' : currentStep.label}
+                    {isDone ? 'All set - taking you in…' : currentStep.label}
                   </motion.p>
                 </AnimatePresence>
               </div>

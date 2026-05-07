@@ -267,23 +267,25 @@ function OrgPicker({ onSelect }) {
 /* ─────────── export columns definition ─────────── */
 
 const EXPORT_COLUMNS = [
-  { key: 'full_name',    label: 'Full Name',     checked: true,  extract: (c) => c.full_name || '-' },
-  { key: 'email',        label: 'Email',          checked: true,  extract: (c) => c.email || '-' },
-  { key: 'full_phone',   label: 'Phone',          checked: true,  extract: (c) => c.full_phone || '-' },
-  { key: 'city',         label: 'City',           checked: false, extract: (c) => c.city || '-' },
-  { key: 'state',        label: 'State',          checked: false, extract: (c) => c.state || '-' },
-  { key: 'status',       label: 'Status',         checked: true,  extract: (c) => niceLabel(c.status) },
-  { key: 'source',       label: 'Source',         checked: false, extract: (c) => niceLabel(c.source) },
-  { key: 'program',      label: 'Program',        checked: false, extract: (c) => c.program || '-' },
-  { key: 'contact_id',   label: 'Contact ID',     checked: false, extract: (c) => c.contact_id || '-' },
-  { key: 'created_at',   label: 'Created At',     checked: false, extract: (c) => fmtDate(c.created_at) },
+  { key: 'full_name', label: 'Full Name', checked: true, extract: (c) => c.full_name || '-' },
+  { key: 'email', label: 'Email', checked: true, extract: (c) => c.email || '-' },
+  { key: 'full_phone', label: 'Phone', checked: true, extract: (c) => c.full_phone || '-' },
+  { key: 'city', label: 'City', checked: false, extract: (c) => c.city || '-' },
+  { key: 'state', label: 'State', checked: false, extract: (c) => c.state || '-' },
+  { key: 'status', label: 'Status', checked: true, extract: (c) => niceLabel(c.status) },
+  { key: 'source', label: 'Source', checked: false, extract: (c) => niceLabel(c.source) },
+  { key: 'program', label: 'Program', checked: false, extract: (c) => c.program || '-' },
+  { key: 'contact_id', label: 'Contact ID', checked: false, extract: (c) => c.contact_id || '-' },
+  { key: 'created_at', label: 'Created At', checked: false, extract: (c) => fmtDate(c.created_at) },
   { key: 'callback_requested', label: 'Callback Requested', checked: false, extract: (c) => c.callback_requested ? 'Yes' : 'No' },
-  { key: 'callback_time_utc',  label: 'Callback Time (IST)', checked: false, extract: (c) => {
-    if (!c.callback_time_utc) return '-'
-    const d = new Date(c.callback_time_utc)
-    if (isNaN(d)) return c.callback_time_utc
-    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).format(d)
-  }},
+  {
+    key: 'callback_time_utc', label: 'Callback Time (IST)', checked: false, extract: (c) => {
+      if (!c.callback_time_utc) return '-'
+      const d = new Date(c.callback_time_utc)
+      if (isNaN(d)) return c.callback_time_utc
+      return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).format(d)
+    }
+  },
 ]
 
 /* ─────────── calls list ─────────── */
@@ -619,7 +621,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
           </div>
         </div>
 
-        {/* Agent strip — one line summary, no manual variable editing */}
+        {/* Agent strip - one line summary, no manual variable editing */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-indigo-600">
@@ -877,7 +879,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
                                 <X size={10} /> {r.message || 'Failed'}
                               </span>
                             </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-400">—</td>
+                            <td className="px-4 py-2.5 text-xs text-gray-400">-</td>
                           </>
                         )}
                         <td className="px-4 py-2.5 font-mono text-[10px] text-gray-500">{fmtTime(r.triggered_at)}</td>
@@ -923,11 +925,10 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
             {exportCols.map(col => (
               <label
                 key={col.key}
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${
-                  col.checked
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm transition ${col.checked
                     ? 'border-indigo-200 bg-indigo-50/60 text-indigo-900 shadow-sm'
                     : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <input
                   type="checkbox"
@@ -977,21 +978,21 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
 /* ─────── live-status polling cell ─────── */
 
 const CALL_STATUS_META = {
-  queued:      { label: 'Queued',      bg: '#EEF2FF', fg: '#4338CA', dot: '#6366F1', pulse: true },
-  ringing:     { label: 'Ringing',     bg: '#FEF3C7', fg: '#92400E', dot: '#F59E0B', pulse: true },
-  live:        { label: 'Live',        bg: '#DCFCE7', fg: '#15803D', dot: '#22C55E', pulse: true },
+  queued: { label: 'Queued', bg: '#EEF2FF', fg: '#4338CA', dot: '#6366F1', pulse: true },
+  ringing: { label: 'Ringing', bg: '#FEF3C7', fg: '#92400E', dot: '#F59E0B', pulse: true },
+  live: { label: 'Live', bg: '#DCFCE7', fg: '#15803D', dot: '#22C55E', pulse: true },
   transferred: { label: 'Transferred', bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
-  ended:       { label: 'Ended',       bg: '#F3F4F6', fg: '#374151', dot: '#9CA3AF' },
-  busy:        { label: 'Busy',        bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
-  no_answer:   { label: 'No answer',   bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
-  cancelled:   { label: 'Cancelled',   bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
-  failed:      { label: 'Failed',      bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
+  ended: { label: 'Ended', bg: '#F3F4F6', fg: '#374151', dot: '#9CA3AF' },
+  busy: { label: 'Busy', bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
+  no_answer: { label: 'No answer', bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
+  cancelled: { label: 'Cancelled', bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
+  failed: { label: 'Failed', bg: '#FEE2E2', fg: '#991B1B', dot: '#EF4444' },
 }
 
 const TERMINAL_STATUSES = new Set(['ended', 'busy', 'no_answer', 'cancelled', 'failed', 'transferred'])
 
 function fmtDuration(s) {
-  if (s == null || isNaN(s) || s < 0) return '—'
+  if (s == null || isNaN(s) || s < 0) return '-'
   const sec = Math.floor(s)
   const mm = Math.floor(sec / 60).toString().padStart(2, '0')
   const ss = (sec % 60).toString().padStart(2, '0')
@@ -1050,7 +1051,7 @@ function CallStatusCells({ plivoCallId, triggeredAt }) {
 
   const meta = CALL_STATUS_META[status] || CALL_STATUS_META.queued
 
-  let durationDisplay = '—'
+  let durationDisplay = '-'
   if (finalDurationRef.current != null) {
     durationDisplay = fmtDuration(finalDurationRef.current)
   } else if (status === 'live') {

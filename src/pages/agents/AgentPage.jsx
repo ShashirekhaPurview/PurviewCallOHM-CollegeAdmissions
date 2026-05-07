@@ -1422,7 +1422,7 @@ export default function AgentPage() {
 
             {/* Two-column: prompt (wide) + dynamic variables (sticky narrow) */}
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
-              {/* System Prompt — read-only preview + Edit modal */}
+              {/* System Prompt - read-only preview + Edit modal */}
               <SectionCard
                 icon={Sparkles}
                 title="System Prompt"
@@ -1481,7 +1481,7 @@ export default function AgentPage() {
                     title="Click to edit in a wider editor"
                   >
                     <pre className="h-full overflow-y-auto whitespace-pre-wrap break-words p-3.5 font-mono text-[12px] leading-relaxed text-gray-700">
-                      {form.prompt.prompt || 'No prompt set yet — click to start writing.'}
+                      {form.prompt.prompt || 'No prompt set yet - click to start writing.'}
                     </pre>
                   </button>
                 </div>

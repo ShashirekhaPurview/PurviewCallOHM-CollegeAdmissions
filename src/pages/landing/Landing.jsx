@@ -1,9 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { ArrowRight, Moon, Sun } from 'lucide-react'
 import Hero from './Hero'
+import {
+  WhyExistsSection,
+  HowItWorksSection,
+  WhatYouGetSection,
+  AnalyticsSection,
+  WhyUsSection,
+  FaqSection,
+  FinalCtaSection,
+} from './Sections'
 import { useNavigateHomeTop } from '../../utils/homeNavigation'
+
+const SUPPORT_EMAIL = 'meena.atmakuri@purviewservices.com'
+const SUPPORT_PHONE_DISPLAY = '+91 70328 35934'
+const SUPPORT_PHONE_DIAL = '+917032835934'
 
 /* ─── Theme ─── */
 function useTheme() {
@@ -76,11 +88,21 @@ const FOOTER_NAV_LINKS = [
   { label: 'Pricing', to: '/pricing' },
 ]
 
-function Logos() {
+function TrustSection() {
   return (
     <section className="v2-logos">
       <div className="landing-container">
-        <div className="v2-logos-label">Trusted by directors at</div>
+        <div className="lp-section-header lp-section-header-tight">
+          <span className="eyebrow no-line">Trusted by students and institutions</span>
+          <h2 className="lp-section-title lp-section-title-sm">
+            Helping students find the <em>right college</em>, faster
+          </h2>
+          <p className="lp-section-sub">
+            Designed for modern, digital first admissions. Powered by the
+            CallOHM AI platform, partnered with leading engineering colleges
+            across India.
+          </p>
+        </div>
       </div>
       <div className="logo-marquee" aria-hidden="false">
         <div className="logo-marquee-track">
@@ -92,31 +114,6 @@ function Logos() {
           ))}
         </div>
       </div>
-    </section>
-  )
-}
-
-/* ─── CTA ─── */
-function CtaBlock() {
-  return (
-    <section className="landing-container">
-      <motion.div
-        className="v2-cta-block"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: '-80px' }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <span className="eyebrow no-line">get started</span>
-        <h2>Ready when your <em>next intake</em> is.</h2>
-        <p>15 minute call. No slides. A real walkthrough of your funnel inside CallOHM.</p>
-        <div className="btn-row">
-          <Link to="/book-demo" className="btn btn-primary btn-arrow">
-            Book a demo <ArrowRight size={15} />
-          </Link>
-          <button className="btn btn-ghost">Talk to a founder</button>
-        </div>
-      </motion.div>
     </section>
   )
 }
@@ -133,7 +130,8 @@ function Footer({ onHomeTop }) {
               <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
             </Link>
             <p className="hi-foot-copy">
-              Admissions voice operations for engineering institutions, from first outreach to follow-up.
+              AI guided college admissions. Find your right fit, apply with
+              confidence, and track every step in one place.
             </p>
           </div>
           <div className="hi-foot-col">
@@ -155,7 +153,8 @@ function Footer({ onHomeTop }) {
             <h4>Contact</h4>
             <div className="hi-foot-links">
               <Link to="/book-demo" className="hi-foot-link">Book a demo</Link>
-              <a href="mailto:support@callohm.com" className="hi-foot-link">support@callohm.com</a>
+              <a href={`tel:${SUPPORT_PHONE_DIAL}`} className="hi-foot-link">{SUPPORT_PHONE_DISPLAY}</a>
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="hi-foot-link">{SUPPORT_EMAIL}</a>
               <a
                 href="https://purviewservices.com"
                 target="_blank"
@@ -187,8 +186,14 @@ export default function Landing() {
         <Navbar theme={theme} onToggleTheme={toggleTheme} onHomeTop={goHomeTop} />
       </div>
       <Hero />
-      <Logos />
-      <CtaBlock />
+      <WhyExistsSection />
+      <HowItWorksSection />
+      <WhatYouGetSection />
+      <AnalyticsSection />
+      <WhyUsSection />
+      <TrustSection />
+      <FaqSection />
+      <FinalCtaSection />
       <Footer onHomeTop={goHomeTop} />
     </div>
   )
