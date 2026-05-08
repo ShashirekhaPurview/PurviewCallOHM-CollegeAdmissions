@@ -10,9 +10,9 @@ const fade = (delay = 0) => ({
 })
 
 const STATS = [
-  { value: '185K+', label: 'admission calls placed every month' },
-  { value: '32%',   label: 'average lift in conversions' },
-  { value: '50+',   label: 'institutions onboarded' },
+  { value: '185K+', label: 'Admission calls placed every month' },
+  { value: '32%', label: 'Average lift in conversions' },
+  { value: '50+', label: 'Institutions onboarded' },
 ]
 
 export default function Hero() {
