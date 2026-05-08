@@ -42,7 +42,7 @@ function BrandMark({ light = false }) {
           className="text-base font-semibold"
           style={{ color: light ? '#fff' : 'var(--ink)', letterSpacing: '-0.012em', fontFamily: 'var(--ui)' }}
         >
-          CallOHM<span style={{ color: 'var(--accent)' }}>.</span>
+          CallOHM
         </div>
         <div
           className="mt-1 text-[10px] font-medium uppercase"

@@ -40,7 +40,7 @@ function Navbar({ theme, onToggleTheme, onHomeTop }) {
     <nav className="hi-nav">
       <Link to="/" onClick={onHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
         <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
-        <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
+        <div className="hi-nav-name">CallOHM</div>
       </Link>
       <div className="hi-nav-links">
         <Link to="/" onClick={onHomeTop} className="hi-nav-link active">Home</Link>
@@ -57,7 +57,7 @@ function Navbar({ theme, onToggleTheme, onHomeTop }) {
           {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
         </button>
         <Link to="/login" className="hi-nav-link" style={{ cursor: 'pointer' }}>Sign in</Link>
-        <Link to="/book-demo" className="btn btn-primary btn-arrow">
+        <Link to="/book-demo" className="btn btn-primary btn-arrow hi-nav-book-demo">
           Book a demo <ArrowRight size={15} />
         </Link>
       </div>
@@ -127,7 +127,7 @@ function Footer({ onHomeTop }) {
           <div className="hi-foot-brand">
             <Link to="/" onClick={onHomeTop} className="hi-nav-brand hi-foot-brand-link">
               <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
-              <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
+              <div className="hi-nav-name">CallOHM</div>
             </Link>
             <p className="hi-foot-copy">
               AI guided college admissions. Find your right fit, apply with

@@ -244,13 +244,13 @@ export function WhyUsSection() {
         {/* Compact comparison strip */}
         <motion.div className="lp-compare" {...fade(0.1)}>
           <div className="lp-compare-row lp-compare-head">
-            <span>Traditional admissions ops</span>
-            <span>Admissions on CallOHM</span>
+            <span data-label="Traditional admissions ops">Traditional admissions ops</span>
+            <span data-label="Admissions on CallOHM">Admissions on CallOHM</span>
           </div>
           {COMPARISON.map((row) => (
             <div key={row.ai} className="lp-compare-row">
-              <span className="lp-compare-old">{row.traditional}</span>
-              <span className="lp-compare-new">{row.ai}</span>
+              <span className="lp-compare-old" data-label="Traditional admissions ops">{row.traditional}</span>
+              <span className="lp-compare-new" data-label="Admissions on CallOHM">{row.ai}</span>
             </div>
           ))}
         </motion.div>
