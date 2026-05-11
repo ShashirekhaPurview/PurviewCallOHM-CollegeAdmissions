@@ -332,6 +332,78 @@
   background: var(--bg-2);
 }
 
+/* ─────────── Hamburger + Mobile menu ─────────── */
+.hi-nav-hamburger {
+  display: none;
+  appearance: none;
+  border: 1px solid var(--hair-2);
+  background: var(--surface);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  place-items: center;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out);
+  flex-shrink: 0;
+}
+
+.hi-nav-hamburger:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+  background: var(--bg-2);
+}
+
+.hi-nav-mobile-menu {
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  background: color-mix(in srgb, var(--bg) 97%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--hair);
+  padding: 10px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: hi-menu-in 0.18s var(--ease-out) both;
+}
+
+@keyframes hi-menu-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hi-nav-mobile-link {
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+  text-decoration: none;
+  display: block;
+}
+
+.hi-nav-mobile-link:hover {
+  color: var(--ink);
+  background: var(--bg-2);
+}
+
+.hi-nav-mobile-link.active {
+  color: var(--ink);
+  background: var(--bg-2);
+}
+
+.hi-nav-mobile-demo {
+  margin-top: 6px;
+  justify-content: center;
+  width: 100%;
+}
+
 /* ─────────── Buttons ─────────── */
 .btn {
   appearance: none;
@@ -562,13 +634,41 @@
   color: var(--ink-3);
 }
 
-.hi-foot-col h4 {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.hi-foot-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.hi-foot-col-toggle {
+  display: none;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hi-foot-chevron {
   color: var(--ink-3);
+  transition: transform 0.22s ease;
+  flex-shrink: 0;
+}
+
+.hi-foot-chevron.open {
+  transform: rotate(180deg);
+}
+
+.hi-foot-col-heading {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
   margin: 0 0 16px;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+  display: block;
 }
 
 .hi-foot-links {
@@ -587,6 +687,54 @@
 
 .hi-foot-link:hover {
   color: var(--accent);
+}
+
+/* Phone number row */
+.hi-foot-phone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hi-foot-phone-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Phone icon only visible on mobile */
+.hi-foot-phone-icon {
+  display: none;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Copy button — desktop only */
+.hi-foot-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--hair-2);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.hi-foot-copy-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink-3);
+  background: var(--bg-2);
+}
+
+.hi-foot-copy-btn.copied {
+  color: #10b981;
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .hi-foot-bottom {
@@ -1424,6 +1572,7 @@
   top: -180px;
   left: -100px;
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .v2-cta-block::after {
@@ -1437,6 +1586,7 @@
   bottom: -140px;
   right: -80px;
   opacity: 0.5;
+  pointer-events: none;
 }
 
 .v2-cta-block>* {
@@ -1614,6 +1764,10 @@
   .hi-nav-links {
     display: none;
   }
+
+  .hi-nav-hamburger {
+    display: grid;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1651,43 +1805,81 @@
     font-size: 12.5px;
   }
 
-  .hi-nav-book-demo {
-    display: none;
+  .hi-foot {
+    margin-top: 56px;
+    padding: 36px 0 24px;
   }
 
   .hi-foot-grid {
     grid-template-columns: 1fr;
-    gap: 28px;
-    margin-bottom: 28px;
-    text-align: center;
+    gap: 0;
+    margin-bottom: 24px;
+    text-align: left;
   }
 
-  .hi-foot-brand,
-  .hi-foot-col {
-    align-items: center;
+  .hi-foot-brand {
+    align-items: flex-start;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 4px;
   }
 
   .hi-foot-brand-link {
-    align-self: center;
+    align-self: flex-start;
   }
 
   .hi-foot-copy {
     max-width: 100%;
   }
 
-  .hi-foot-links {
-    align-items: center;
+  /* Accordion: show toggle, hide static desktop heading */
+  .hi-foot-col {
+    align-items: flex-start;
+    border-bottom: 1px solid var(--hair);
   }
 
-  .hi-foot-col h4 {
-    margin-bottom: 12px;
+  /* Hide the static desktop heading on mobile */
+  .hi-foot-col > .hi-foot-col-heading {
+    display: none;
+  }
+
+  .hi-foot-col-toggle {
+    display: flex;
+    padding: 14px 0;
+  }
+
+  /* Style the heading span inside the toggle button */
+  .hi-foot-col-toggle .hi-foot-col-heading {
+    display: block;
+    margin: 0;
+  }
+
+  /* Phone: hide copy, show call icon on mobile */
+  .hi-foot-copy-btn {
+    display: none;
+  }
+
+  .hi-foot-phone-icon {
+    display: block;
+  }
+
+  /* Links hidden by default on mobile, shown when open */
+  .hi-foot-links {
+    display: none;
+    align-items: flex-start;
+    padding-bottom: 14px;
+  }
+
+  .hi-foot-links.hi-foot-links-open {
+    display: flex;
   }
 
   .hi-foot-bottom {
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 8px;
+    align-items: flex-start;
+    text-align: left;
+    gap: 6px;
+    padding-top: 20px;
   }
 }
 
@@ -1709,11 +1901,12 @@
 
 @media (max-width: 420px) {
   .hi-foot {
-    padding: 32px 0 24px;
+    margin-top: 40px;
+    padding: 28px 0 20px;
   }
 
   .hi-foot-grid {
-    gap: 24px;
+    gap: 20px;
   }
 
   .hi-foot-copy,

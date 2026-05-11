@@ -74,6 +74,8 @@ const STEP_META = [
   { label: 'Campaign', desc: 'Schedule & launch' },
 ]
 
+const NATURAL_W = 920
+
 export default function WorkflowAnimation() {
   const containerRef = useRef(null)
   const cursorRef = useRef(null)
@@ -84,6 +86,7 @@ export default function WorkflowAnimation() {
   const nodeBoxRefs = useRef([])
   const saveBtnRef = useRef(null)
 
+  const [containerW, setContainerW] = useState(NATURAL_W)
   const [nodes, setNodes] = useState(Array(N).fill(null).map(() => ({ state: 'hidden', value: '', typedValue: '', selectedIdx: 0 })))
   const [lines, setLines] = useState(Array(N).fill(false))
   const [startGlow, setStartGlow] = useState(false)
@@ -96,10 +99,18 @@ export default function WorkflowAnimation() {
   const [selectedOpt, setSelectedOpt] = useState(-1)
   const [saveDone, setSaveDone] = useState(false)
   const [cursorClick, setCursorClick] = useState(false)
-  const [toast, setToast] = useState(false)
   const [showSave, setShowSave] = useState(false)
   const [saveClicked, setSaveClicked] = useState(false)
   const [isDark, setIsDark] = useState(false)
+
+  const scale = Math.min(1, containerW / NATURAL_W)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const obs = new ResizeObserver(([entry]) => setContainerW(entry.contentRect.width))
+    obs.observe(containerRef.current)
+    return () => obs.disconnect()
+  }, [])
 
   useEffect(() => {
     const check = () => setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
@@ -229,10 +240,7 @@ export default function WorkflowAnimation() {
 
       await d(320); setShowSave(true); await d(420)
       if (saveBtnRef.current) { const p = getCenter(saveBtnRef.current); await moveTo(p.x, p.y, 480) }
-      await d(160); await click(); setSaveClicked(true); await d(220)
-      setToast(true); await d(3000)
-      if (alive) setToast(false)
-      await d(1400)
+      await d(160); await click(); setSaveClicked(true); await d(3500)
       if (!alive || cancelRef.current) return
 
       setNodes(Array(N).fill(null).map(() => ({ state: 'hidden', value: '', typedValue: '', selectedIdx: 0 })))
@@ -240,7 +248,7 @@ export default function WorkflowAnimation() {
       setStartGlow(false); setPlusGlow(Array(N).fill(false))
       setCardOpen(false); setCardClosing(false); setCardData(null)
       setSelectedOpt(-1); setSaveDone(false); setSaveBtnIn(false)
-      setOptsIn([false, false, false]); setToast(false)
+      setOptsIn([false, false, false])
       setShowSave(false); setSaveClicked(false)
       await d(500)
       if (alive && !cancelRef.current) run()
@@ -263,6 +271,14 @@ export default function WorkflowAnimation() {
           : `radial-gradient(ellipse 70% 55% at 50% 45%, rgba(181,86,44,0.05) 0%, transparent 65%), ${bg}`,
       }}
     >
+      {/* ── Scaled inner scene (everything except cursor) ── */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        pointerEvents: scale < 1 ? 'none' : undefined,
+      }}>
+
       {/* Grid background */}
       <svg
         aria-hidden
@@ -345,9 +361,9 @@ export default function WorkflowAnimation() {
         })}
       </div>
 
-      {/* ── Eyebrow label (center, faded bg text) ── */}
+      {/* ── Eyebrow label ── */}
       <div style={{
-        position: 'absolute', top: '6%', left: '50%',
+        position: 'absolute', top: 28, left: '50%',
         transform: 'translateX(-50%)',
         textAlign: 'center', pointerEvents: 'none', zIndex: 10,
         whiteSpace: 'nowrap',
@@ -361,11 +377,11 @@ export default function WorkflowAnimation() {
         </div>
       </div>
 
-      {/* ── Save Workflow button (top-right) ── */}
+      {/* ── Save Workflow button (bottom-right) ── */}
       <div
         ref={saveBtnRef}
         style={{
-          position: 'absolute', top: 20, right: 28, zIndex: 40,
+          position: 'absolute', bottom: 28, right: 28, zIndex: 40,
           padding: '9px 22px', borderRadius: 12,
           fontSize: 12, fontWeight: 700, color: '#fff',
           background: saveClicked ? GREEN : GRAD,
@@ -379,22 +395,6 @@ export default function WorkflowAnimation() {
         }}
       >
         {saveClicked ? '✓ Workflow Saved!' : 'Save Workflow'}
-      </div>
-
-      {/* ── Toast ── */}
-      <div style={{
-        position: 'absolute', top: 20, left: '50%', zIndex: 60,
-        transform: `translateX(-50%) translateY(${toast ? 0 : -16}px)`,
-        background: GREEN, color: '#fff',
-        padding: '8px 22px', borderRadius: 999,
-        fontSize: 12, fontWeight: 700,
-        opacity: toast ? 1 : 0,
-        transition: 'all 0.35s cubic-bezier(.34,1.1,.64,1)',
-        pointerEvents: 'none',
-        boxShadow: '0 6px 28px rgba(16,185,129,0.35)',
-        letterSpacing: '0.01em',
-      }}>
-        ✓ Campaign Workflow Saved!
       </div>
 
       {/* ── Dropdown card - above the pipeline ── */}
@@ -732,7 +732,9 @@ export default function WorkflowAnimation() {
         })}
       </div>
 
-      {/* ── Cursor dot with ring ── */}
+      </div>{/* end scaled inner scene */}
+
+      {/* ── Cursor dot with ring — lives outside scaled div so coordinate math is unaffected ── */}
       <div
         ref={cursorRef}
         style={{

@@ -1,29 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  ArrowRight, Check, Loader2, Moon, Sun,
+  ArrowRight, Check, Loader2,
   Clock, Phone, ShieldCheck,
 } from 'lucide-react'
-import { useNavigateHomeTop } from '../utils/homeNavigation'
 import { createBookDemoRequest } from '../api/bookDemo/bookDemoService'
-
-/* ── Theme ── */
-function useTheme() {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'light'
-    const saved = localStorage.getItem('callohm-theme')
-    if (saved === 'light' || saved === 'dark') return saved
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  })
-  useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') root.setAttribute('data-theme', 'dark')
-    else root.removeAttribute('data-theme')
-    localStorage.setItem('callohm-theme', theme)
-  }, [theme])
-  return [theme, () => setTheme(t => (t === 'dark' ? 'light' : 'dark'))]
-}
+import { useTheme } from '../hooks/useTheme'
+import SiteNav from '../components/SiteNav'
 
 const INITIAL_FORM = {
   fullName: '', workEmail: '', organization: '', message: '',
@@ -85,7 +68,6 @@ function applyBlur(e) {
 
 export default function BookDemoPage() {
   const [theme, toggleTheme] = useTheme()
-  const goHomeTop = useNavigateHomeTop()
   const [form, setForm] = useState(INITIAL_FORM)
   const [submitState, setSubmitState] = useState('idle')
   const [submitError, setSubmitError] = useState('')
@@ -131,25 +113,7 @@ export default function BookDemoPage() {
       data-theme-scope={theme}
       style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
     >
-      {/* Nav */}
-      <nav className="hi-nav">
-        <Link to="/" onClick={goHomeTop} className="hi-nav-brand" style={{ textDecoration: 'none' }}>
-          <img src="/callohm-logo.png" alt="CallOHM" className="hi-nav-logo" />
-          <div className="hi-nav-name">CallOHM<span className="dot">.</span></div>
-        </Link>
-        <div className="hi-nav-links">
-          <Link to="/" onClick={goHomeTop} className="hi-nav-link">Home</Link>
-          <Link to="/workflow" className="hi-nav-link">Workflow</Link>
-          <Link to="/customers" className="hi-nav-link">Customers</Link>
-          <Link to="/pricing" className="hi-nav-link">Pricing</Link>
-        </div>
-        <div className="hi-nav-cta">
-          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-          <Link to="/login" className="hi-nav-link">Sign in</Link>
-        </div>
-      </nav>
+      <SiteNav theme={theme} onToggleTheme={toggleTheme} />
 
       {/* Body */}
       <div style={{
