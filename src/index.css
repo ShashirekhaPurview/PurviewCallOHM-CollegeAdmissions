@@ -535,9 +535,9 @@
 .logo-marquee-track {
   display: flex;
   align-items: center;
-  gap: 48px;
+  gap: 64px;
   width: max-content;
-  padding-right: 48px;
+  padding-right: 64px;
   opacity: 0.75;
   animation: logo-scroll 38s linear infinite;
 }
@@ -568,21 +568,21 @@
 .logo-mark {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 15px;
   letter-spacing: 0.02em;
   color: var(--ink-2);
   white-space: nowrap;
 }
 
 .logo-img {
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #fff;
-  padding: 4px;
+  padding: 6px;
   border: 1px solid var(--hair);
   flex-shrink: 0;
 }

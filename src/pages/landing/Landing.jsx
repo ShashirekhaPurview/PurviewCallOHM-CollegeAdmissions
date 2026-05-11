@@ -21,18 +21,18 @@ const SUPPORT_PHONE_DIAL = '+917032835934'
 
 /* ─── Logos ─── */
 const COLLEGES = [
-  { name: 'Stanley College',     logo: '/college_logos/stanley.png' },
-  { name: 'CBIT',                logo: '/college_logos/CBIT-LOGO-2023.png' },
-  { name: 'Vasavi College',      logo: '/college_logos/vasavi.jpg' },
-  { name: 'VNR VJIET',           logo: '/college_logos/vnrvjit.png' },
-  { name: 'VJIT',                logo: '/college_logos/vjit.png' },
-  { name: 'Anurag University',   logo: '/college_logos/anurag.png' },
-  { name: 'KL University',       logo: '/college_logos/klu.png' },
-  { name: 'Malla Reddy',         logo: '/college_logos/malla reddy.png' },
-  { name: 'MLRITM',              logo: '/college_logos/mlritm.png' },
-  { name: 'Geethanjali',         logo: '/college_logos/geetanjali.jpg' },
-  { name: 'IARE',                logo: '/college_logos/IARE.jpg' },
-  { name: 'Narayanamma',         logo: '/college_logos/narayanammma.png' },
+  { name: 'SCETW',      logo: '/college_logos/stanley.png' },
+  { name: 'CBIT',       logo: '/college_logos/CBIT-LOGO-2023.png' },
+  { name: 'VCE',        logo: '/college_logos/vasavi.jpg' },
+  { name: 'VNRVJIET',   logo: '/college_logos/vnrvjit.png' },
+  { name: 'VJIT',       logo: '/college_logos/vjit.png' },
+  { name: 'AU',         logo: '/college_logos/anurag.png' },
+  { name: 'KLH',        logo: '/college_logos/klu.png' },
+  { name: 'MRU',        logo: '/college_logos/malla reddy.png' },
+  { name: 'MLRITM',     logo: '/college_logos/mlritm.png' },
+  { name: 'GCET',       logo: '/college_logos/geetanjali.png' },
+  { name: 'IARE',       logo: '/college_logos/IARE.jpg' },
+  { name: 'GNITS',      logo: '/college_logos/narayanammma.png' },
 ]
 
 const FOOTER_NAV_LINKS = [
