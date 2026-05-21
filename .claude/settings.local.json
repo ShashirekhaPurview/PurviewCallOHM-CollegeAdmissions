@@ -7,7 +7,9 @@
       "Read(//c/Users/Shashirekha/.claude/projects/c--Users-Shashirekha-Desktop-My-Projects-CallOHM-Admissions/**)",
       "Read(//c/Users/Shashirekha/.claude/projects/c--Users-Shashirekha-Desktop-My-Projects-CallOHM-Admissions/memory/**)",
       "Bash(python3 -c ' *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\Shashirekha\\\\Desktop\\\\My Projects\\\\CallOHM-Admissions\" -Recurse -Force | Select-Object FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"c:\\\\Users\\\\Shashirekha\\\\Desktop\\\\My Projects\\\\CallOHM-Admissions\"\\), \".\" } | head -200)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\Shashirekha\\\\Desktop\\\\My Projects\\\\CallOHM-Admissions\" -Recurse -Force | Select-Object FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"c:\\\\Users\\\\Shashirekha\\\\Desktop\\\\My Projects\\\\CallOHM-Admissions\"\\), \".\" } | Select-Object -First 200)"
     ]
   }
 }

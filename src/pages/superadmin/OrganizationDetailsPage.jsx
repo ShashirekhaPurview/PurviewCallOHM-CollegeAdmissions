@@ -458,7 +458,7 @@ export default function OrganizationDetailsPage() {
   const [org, setOrg] = useState(null)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('users') // users | analytics
+  const [tab, setTab] = useState('active') // active | archived | analytics
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState(null)
 
@@ -614,6 +614,9 @@ export default function OrganizationDetailsPage() {
   const filtered = users.filter(u =>
     u.email.toLowerCase().includes(search.trim().toLowerCase())
   )
+  const filteredActive = filtered.filter(u => u.is_active)
+  const filteredArchived = filtered.filter(u => !u.is_active)
+
 
   const inviteRoleOptions = [
     { value: 'org_user', label: 'Org User' },
@@ -681,7 +684,8 @@ export default function OrganizationDetailsPage() {
         {/* Tab bar */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b-2 border-gray-200 pb-0">
           <div className="flex items-end gap-1.5 px-2">
-            <Tab id="users" current={tab} onClick={setTab} icon={UsersIcon} label="Users" count={counts.all} colorFrom="#0EA5E9" colorTo="#0284C7" />
+            <Tab id="active" current={tab} onClick={setTab} icon={UsersIcon} label="Active Users" count={users.filter(u => u.is_active).length} colorFrom="#0EA5E9" colorTo="#0284C7" />
+            <Tab id="archived" current={tab} onClick={setTab} icon={Archive} label="Archived Users" count={users.filter(u => !u.is_active).length} colorFrom="#9CA3AF" colorTo="#6B7280" />
             <Tab id="analytics" current={tab} onClick={setTab} icon={BarChart3} label="Analytics" colorFrom="#8B5CF6" colorTo="#6D28D9" />
           </div>
           <div className="flex items-center gap-2.5 pb-2">
@@ -691,7 +695,7 @@ export default function OrganizationDetailsPage() {
             >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-            {tab === 'users' && (
+            {tab === 'active' && (
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={() => {
@@ -758,7 +762,7 @@ export default function OrganizationDetailsPage() {
             </motion.div>
           ) : (
             <motion.div
-              key="list"
+              key={tab}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.22 }}
             >
@@ -783,43 +787,54 @@ export default function OrganizationDetailsPage() {
                     )}
                   </AnimatePresence>
                 </div>
-                <span className="text-xs font-medium text-gray-400">{filtered.length} users</span>
+                <span className="text-xs font-medium text-gray-400">
+                  {tab === 'active' ? filteredActive.length : filteredArchived.length} users
+                </span>
               </div>
 
               {/* Cards */}
-              {loading ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-44 animate-pulse rounded-lg bg-white shadow-sm ring-1 ring-gray-100" />
-                  ))}
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="flex flex-col items-center rounded-lg bg-white py-20 text-center shadow-sm ring-1 ring-gray-100">
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-gray-50">
-                    <UsersIcon size={22} className="text-gray-300" />
+              {(() => {
+                const list = tab === 'active' ? filteredActive : filteredArchived
+                const emptyMsg = tab === 'active'
+                  ? (search ? `No active matches for "${search}"` : 'No active users in this organization')
+                  : (search ? `No archived matches for "${search}"` : 'No archived users in this organization')
+
+                if (loading) return (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-44 animate-pulse rounded-lg bg-white shadow-sm ring-1 ring-gray-100" />
+                    ))}
                   </div>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {search ? `No matches for "${search}"` : 'No users in this organization'}
-                  </p>
-                </div>
-              ) : (
-                <motion.div
-                  className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                  initial="hidden" animate="show"
-                  variants={{ show: { transition: { staggerChildren: 0.04 } } }}
-                >
-                  {filtered.map(user => (
-                    <UserCard
-                      key={user.user_id}
-                      user={user}
-                      isToggling={togglingId === user.user_id}
-                      onReset={() => { setResetUser(user); setNewPwd(''); setResetErr('') }}
-                      onArchive={() => setConfirmUser(user)}
-                      onRestore={() => performUserToggle(user)}
-                    />
-                  ))}
-                </motion.div>
-              )}
+                )
+
+                if (list.length === 0) return (
+                  <div className="flex flex-col items-center rounded-lg bg-white py-20 text-center shadow-sm ring-1 ring-gray-100">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-gray-50">
+                      {tab === 'active' ? <UsersIcon size={22} className="text-gray-300" /> : <Archive size={22} className="text-gray-300" />}
+                    </div>
+                    <p className="text-sm font-semibold text-gray-700">{emptyMsg}</p>
+                  </div>
+                )
+
+                return (
+                  <motion.div
+                    className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    initial="hidden" animate="show"
+                    variants={{ show: { transition: { staggerChildren: 0.04 } } }}
+                  >
+                    {list.map(user => (
+                      <UserCard
+                        key={user.user_id}
+                        user={user}
+                        isToggling={togglingId === user.user_id}
+                        onReset={() => { setResetUser(user); setNewPwd(''); setResetErr('') }}
+                        onArchive={() => setConfirmUser(user)}
+                        onRestore={() => performUserToggle(user)}
+                      />
+                    ))}
+                  </motion.div>
+                )
+              })()}
             </motion.div>
           )}
         </AnimatePresence>

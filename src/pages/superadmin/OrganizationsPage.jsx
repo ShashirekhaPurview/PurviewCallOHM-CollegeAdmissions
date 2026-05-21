@@ -434,8 +434,8 @@ export default function OrganizationsPage() {
         {/* ── Tab bar ── */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b-2 border-gray-200 pb-0">
           <div className="flex items-end gap-1.5 px-2">
-            <Tab id="active" current={tab} onClick={setTab} icon={ListChecks} label="Active" count={activeOrgs.length} colorFrom="#10B981" colorTo="#059669" />
-            <Tab id="archived" current={tab} onClick={setTab} icon={Archive} label="Archived" count={archivedOrgs.length} colorFrom="#F87171" colorTo="#DC2626" />
+            <Tab id="active" current={tab} onClick={setTab} icon={ListChecks} label="Active Organizations" count={activeOrgs.length} colorFrom="#10B981" colorTo="#059669" />
+            <Tab id="archived" current={tab} onClick={setTab} icon={Archive} label="Archived Organizations" count={archivedOrgs.length} colorFrom="#F87171" colorTo="#DC2626" />
             <Tab id="analytics" current={tab} onClick={setTab} icon={BarChart3} label="Analytics" colorFrom="#8B5CF6" colorTo="#6D28D9" />
           </div>
           <div className="flex items-center gap-2.5 pb-2">
