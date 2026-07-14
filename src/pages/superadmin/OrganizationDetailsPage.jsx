@@ -191,7 +191,8 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className="relative w-full max-w-md rounded-xl bg-white shadow-2xl ring-1 ring-black/6"
+            className="relative w-full max-w-md rounded-xl shadow-2xl"
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-5">
               <div className="flex items-center gap-3">
@@ -310,7 +311,7 @@ function Tab({ id, current, onClick, icon: Icon, label, count, colorFrom, colorT
       className={`relative flex shrink-0 items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${!active && 'hover:bg-gray-100'}`}
       style={{
         color: active ? '#FFFFFF' : '#6B7280',
-        background: active ? `linear-gradient(135deg, ${colorFrom}, ${colorTo})` : '#F9FAFB',
+        background: active ? `linear-gradient(135deg, ${colorFrom}, ${colorTo})` : 'var(--bg-2)',
         borderRadius: '14px 14px 0 0',
         borderTop: '1px solid #E5E7EB',
         borderLeft: '1px solid #E5E7EB',
@@ -625,10 +626,7 @@ export default function OrganizationDetailsPage() {
 
   return (
     <div
-      className="min-h-full px-8 py-7"
-      style={{
-        background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.07) 0%, transparent 70%), #F9FAFB',
-      }}
+      className="app-page-bg min-h-full px-8 py-7"
     >
       <div className="mx-auto max-w-6xl">
 
@@ -1008,9 +1006,12 @@ export default function OrganizationDetailsPage() {
             transition={{ type: 'spring', stiffness: 420, damping: 28 }}
             className="fixed top-8 right-8 z-50"
           >
-            <div className={`flex items-center gap-3 rounded-md px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
-              }`}
-              style={toast.type !== 'error' ? { boxShadow: '0 8px 32px rgba(0,0,0,0.28)' } : {}}
+            <div
+              className="flex items-center gap-3 rounded-md px-5 py-3.5 text-sm font-medium shadow-2xl"
+              style={toast.type === 'error'
+                ? { background: 'var(--surface)', color: '#F87171', outline: '1px solid rgba(248,113,113,0.25)', boxShadow: 'var(--shadow-lg)' }
+                : { background: 'var(--ink)', color: 'var(--bg)', outline: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.28)' }
+              }
             >
               {toast.type === 'error'
                 ? <X size={15} className="shrink-0 text-red-500" />

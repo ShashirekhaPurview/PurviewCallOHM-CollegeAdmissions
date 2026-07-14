@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from '../../hooks/useTheme'
 import { useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -21,12 +22,12 @@ import {
 /* ─────────── constants ─────────── */
 
 const STATUS_META = {
-  new: { label: 'New', bg: '#EEF2FF', fg: '#4338CA', dot: '#6366F1' },
-  contacted: { label: 'Contacted', bg: '#ECFEFF', fg: '#0E7490', dot: '#06B6D4' },
-  interested: { label: 'Interested', bg: '#FEF3C7', fg: '#92400E', dot: '#F59E0B' },
-  applied: { label: 'Applied', bg: '#F5F3FF', fg: '#5B21B6', dot: '#8B5CF6' },
-  enrolled: { label: 'Enrolled', bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
-  dropped: { label: 'Dropped', bg: '#FEF2F2', fg: '#991B1B', dot: '#EF4444' },
+  new:        { label: 'New',        dot: '#6366F1', light: { bg: '#EEF2FF', fg: '#4338CA' }, dark: { bg: 'rgba(99,102,241,0.15)',  fg: '#A5B4FC' } },
+  contacted:  { label: 'Contacted',  dot: '#06B6D4', light: { bg: '#ECFEFF', fg: '#0E7490' }, dark: { bg: 'rgba(6,182,212,0.13)',   fg: '#67E8F9' } },
+  interested: { label: 'Interested', dot: '#F59E0B', light: { bg: '#FEF3C7', fg: '#92400E' }, dark: { bg: 'rgba(245,158,11,0.13)',  fg: '#FCD34D' } },
+  applied:    { label: 'Applied',    dot: '#8B5CF6', light: { bg: '#F5F3FF', fg: '#5B21B6' }, dark: { bg: 'rgba(139,92,246,0.15)', fg: '#C4B5FD' } },
+  enrolled:   { label: 'Enrolled',   dot: '#10B981', light: { bg: '#ECFDF5', fg: '#065F46' }, dark: { bg: 'rgba(16,185,129,0.13)', fg: '#6EE7B7' } },
+  dropped:    { label: 'Dropped',    dot: '#EF4444', light: { bg: '#FEF2F2', fg: '#991B1B' }, dark: { bg: 'rgba(239,68,68,0.13)',  fg: '#FCA5A5' } },
 }
 
 const STATUS_OPTIONS = Object.keys(STATUS_META)
@@ -69,9 +70,10 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className={`relative w-full ${max} max-h-[90vh] rounded-xl bg-white shadow-2xl ring-1 ring-black/6`}
+            className={`relative w-full ${max} max-h-[90vh] rounded-xl shadow-2xl`}
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl bg-white px-6 pt-6 pb-5">
+            <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-xl px-6 pt-6 pb-5" style={{ background: 'var(--surface)' }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: iconBg }}>
                   <Icon size={17} style={{ color: iconFg }} />
@@ -105,9 +107,10 @@ function Drawer({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF'
           <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className={`relative flex h-full w-full ${max} flex-col bg-white shadow-2xl`}
+            className={`relative flex h-full w-full ${max} flex-col shadow-2xl`}
+            style={{ background: 'var(--surface)', borderLeft: '1px solid var(--hair)' }}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-5">
+            <div className="flex shrink-0 items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid var(--hair)', background: 'var(--surface)' }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: iconBg }}>
                   <Icon size={17} style={{ color: iconFg }} />
@@ -225,8 +228,8 @@ function CountryCodePicker({ value, onChange, label = 'Code' }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.12 }}
-              className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl ring-1 ring-black/5"
-              style={{ minWidth: 280 }}
+              className="absolute left-0 right-0 z-30 mt-1.5 overflow-hidden rounded-md shadow-xl"
+              style={{ minWidth: 280, background: 'var(--surface)', border: '1px solid var(--hair)', boxShadow: 'var(--shadow-lg)' }}
             >
               <div className="border-b border-gray-100 p-2">
                 <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5">
@@ -346,11 +349,13 @@ function Select({ id, label, value, onChange, options, placeholder }) {
 }
 
 function StatusPill({ status }) {
+  const [theme] = useTheme()
   const m = STATUS_META[status] || STATUS_META.new
+  const c = theme === 'dark' ? m.dark : m.light
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-      style={{ background: m.bg, color: m.fg }}
+      style={{ background: c.bg, color: c.fg }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.dot }} />
       {m.label}
@@ -368,8 +373,13 @@ function Toast({ toast }) {
           transition={{ type: 'spring', stiffness: 420, damping: 28 }}
           className="fixed top-8 right-8 z-[60]"
         >
-          <div className={`flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
-            }`}>
+          <div
+            className="flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl"
+            style={toast.type === 'error'
+              ? { background: 'var(--surface)', color: '#F87171', outline: '1px solid rgba(248,113,113,0.25)', boxShadow: 'var(--shadow-lg)' }
+              : { background: 'var(--ink)', color: 'var(--bg)', outline: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.28)' }
+            }
+          >
             {toast.type === 'error'
               ? <X size={15} className="shrink-0 text-red-500" />
               : <Check size={15} className="shrink-0 text-emerald-400" />}
@@ -436,10 +446,7 @@ function OrgPicker({ onSelect }) {
   const filtered = orgs.filter(o => o.name.toLowerCase().includes(search.trim().toLowerCase()))
 
   return (
-    <div
-      className="min-h-full px-8 py-7"
-      style={{ background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.07) 0%, transparent 70%), #F9FAFB' }}
-    >
+    <div className="app-page-bg min-h-full px-8 py-7">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -527,8 +534,13 @@ function OrgPicker({ onSelect }) {
             transition={{ type: 'spring', stiffness: 420, damping: 28 }}
             className="fixed top-8 right-8 z-[60]"
           >
-            <div className={`flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
-              }`}>
+            <div
+              className="flex items-center gap-3 rounded-2xl px-5 py-3.5 text-sm font-medium shadow-2xl"
+              style={toast.type === 'error'
+                ? { background: 'var(--surface)', color: '#F87171', outline: '1px solid rgba(248,113,113,0.25)', boxShadow: 'var(--shadow-lg)' }
+                : { background: 'var(--ink)', color: 'var(--bg)', outline: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.28)' }
+              }
+            >
               {toast.type === 'error'
                 ? <X size={15} className="shrink-0 text-red-500" />
                 : <Check size={15} className="shrink-0 text-emerald-400" />}
@@ -568,6 +580,7 @@ const CONTACTS_EXPORT_COLUMNS = [
 ]
 
 function ContactsList({ orgId, isSuper, onBackToOrgs }) {
+  const [theme] = useTheme()
   const [searchParams, setSearchParams] = useSearchParams()
   const [contacts, setContacts] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
@@ -811,10 +824,7 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
   }
 
   return (
-    <div
-      className="min-h-full px-8 py-7"
-      style={{ background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.07) 0%, transparent 70%), #F9FAFB' }}
-    >
+    <div className="app-page-bg min-h-full px-8 py-7">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -1271,31 +1281,40 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
             onClick={() => setExportOpen(false)}
           />
           <div
-            className="relative w-full max-w-xl rounded-2xl bg-white"
-            style={{ boxShadow: '0 25px 60px rgba(15,23,42,0.16), 0 0 0 1px rgba(148,163,184,0.1)' }}
+            className="relative w-full max-w-xl rounded-2xl"
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)', boxShadow: 'var(--shadow-xl)' }}
           >
             {/* Header */}
             <div
               className="relative overflow-hidden rounded-t-2xl px-5 pt-5 pb-4"
-              style={{ background: 'linear-gradient(135deg, #f8faff 0%, #eef1ff 50%, #f0f4ff 100%)' }}
+              style={{
+                background: theme === 'dark'
+                  ? 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.06) 100%)'
+                  : 'linear-gradient(135deg, #f8faff 0%, #eef1ff 50%, #f0f4ff 100%)',
+                borderBottom: '1px solid var(--hair)',
+              }}
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-300/20 blur-2xl" />
               <div className="pointer-events-none absolute -left-4 -bottom-4 h-20 w-20 rounded-full bg-violet-300/15 blur-2xl" />
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-indigo-100">
-                    <Download size={17} className="text-indigo-600" />
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-xl shadow-sm"
+                    style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
+                  >
+                    <Download size={17} className="text-indigo-500" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Export to Excel</h3>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      <span className="font-semibold text-indigo-600">{filtered.length}</span> contacts
+                    <h3 className="text-sm font-bold" style={{ color: 'var(--ink)' }}>Export to Excel</h3>
+                    <p className="mt-0.5 text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                      <span className="font-semibold text-indigo-500">{filtered.length}</span> contacts
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setExportOpen(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/80 text-slate-400 shadow-sm ring-1 ring-slate-200/60 transition hover:bg-white hover:text-slate-600"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg transition"
+                  style={{ background: 'var(--bg-2)', color: 'var(--ink-3)', outline: '1px solid var(--hair)' }}
                 >
                   <X size={14} />
                 </button>
@@ -1305,11 +1324,11 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
             {/* Body */}
             <div className="px-5 py-4 space-y-3.5">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.14em]">Select columns</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--ink-4)' }}>Select columns</p>
                 <div className="flex items-center gap-1">
-                  <button onClick={selectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-indigo-600 transition hover:bg-indigo-50">Select all</button>
-                  <span className="text-slate-200">·</span>
-                  <button onClick={deselectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-400 transition hover:bg-slate-50 hover:text-slate-600">Clear</button>
+                  <button onClick={selectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold text-indigo-500 transition hover:bg-indigo-50">Select all</button>
+                  <span style={{ color: 'var(--hair-2)' }}>·</span>
+                  <button onClick={deselectAllExportCols} className="rounded-md px-2 py-1 text-[10px] font-bold transition hover:bg-slate-50 hover:text-slate-600" style={{ color: 'var(--ink-4)' }}>Clear</button>
                 </div>
               </div>
 
@@ -1320,17 +1339,19 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
                   return (
                     <label
                       key={col.key}
-                      className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-xs transition-all duration-150 ${
-                        active
-                          ? 'border-indigo-400/50 bg-gradient-to-r from-indigo-50/80 to-violet-50/40 text-indigo-900'
-                          : 'border-transparent bg-slate-50/80 text-slate-500 hover:bg-slate-100/80 hover:text-slate-700'
-                      }`}
+                      className="group flex cursor-pointer items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-xs transition-all duration-150"
+                      style={active
+                        ? { borderColor: 'rgba(99,102,241,0.4)', background: theme === 'dark' ? 'rgba(99,102,241,0.12)' : 'linear-gradient(135deg, rgba(238,242,255,0.8), rgba(245,243,255,0.4))', color: theme === 'dark' ? '#A5B4FC' : '#312E81' }
+                        : { borderColor: 'transparent', background: 'var(--bg-2)', color: 'var(--ink-3)' }
+                      }
                     >
-                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-150 ${
-                        active
-                          ? 'border-indigo-500 bg-indigo-500'
-                          : 'border-slate-300 bg-white group-hover:border-slate-400'
-                      }`}>
+                      <div
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-all duration-150"
+                        style={active
+                          ? { borderColor: '#6366F1', background: '#6366F1' }
+                          : { borderColor: 'var(--hair-2)', background: 'var(--surface)' }
+                        }
+                      >
                         {active && <Check size={10} className="text-white" strokeWidth={3} />}
                       </div>
                       <input type="checkbox" checked={col.checked} onChange={() => toggleExportCol(col.key)} className="sr-only" />
@@ -1343,20 +1364,23 @@ function ContactsList({ orgId, isSuper, onBackToOrgs }) {
               {/* Summary */}
               <div
                 className="flex items-center justify-between rounded-lg px-4 py-2.5"
-                style={{ background: 'linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%)', border: '1px solid rgba(148,163,184,0.12)' }}
+                style={{ background: 'var(--bg-2)', border: '1px solid var(--hair)' }}
               >
-                <p className="text-[11px] text-slate-500">
-                  <span className="text-xs font-bold text-indigo-600">{exportCols.filter((c) => c.checked).length}</span>
-                  <span className="text-slate-400"> / {exportCols.length} columns</span>
+                <p className="text-[11px]" style={{ color: 'var(--ink-3)' }}>
+                  <span className="text-xs font-bold text-indigo-500">{exportCols.filter((c) => c.checked).length}</span>
+                  <span style={{ color: 'var(--ink-4)' }}> / {exportCols.length} columns</span>
                 </p>
-                <p className="text-[11px] font-semibold text-slate-400">{filtered.length} rows</p>
+                <p className="text-[11px] font-semibold" style={{ color: 'var(--ink-4)' }}>{filtered.length} rows</p>
               </div>
 
               {/* Actions */}
               <div className="flex gap-2.5">
                 <button
                   onClick={() => setExportOpen(false)}
-                  className="flex-1 rounded-lg border-2 border-slate-200 py-2.5 text-xs font-bold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                  className="flex-1 rounded-lg border-2 py-2.5 text-xs font-bold transition"
+                  style={{ borderColor: 'var(--hair-2)', color: 'var(--ink-3)', background: 'transparent' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   Cancel
                 </button>

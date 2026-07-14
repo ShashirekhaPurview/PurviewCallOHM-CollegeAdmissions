@@ -6,6 +6,7 @@ import {
   PhoneCall, RefreshCw, Search, UserPlus, X, Copy, Download, Bot, Variable,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
+import { useTheme } from '../../hooks/useTheme'
 import { getCurrentUser } from '../../api/auth/authService'
 import { listOrganizations } from '../../api/orgs/orgService'
 import { listContacts } from '../../api/contacts/contactService'
@@ -15,24 +16,30 @@ import { getOrganizationAgentContext } from '../../api/agents/orgScopedAgentServ
 /* ─────────── shared meta ─────────── */
 
 const STATUS_META = {
-  new: { label: 'New', bg: '#EEF2FF', fg: '#4338CA', dot: '#6366F1' },
-  contacted: { label: 'Contacted', bg: '#ECFEFF', fg: '#0E7490', dot: '#06B6D4' },
-  interested: { label: 'Interested', bg: '#FEF3C7', fg: '#92400E', dot: '#F59E0B' },
-  applied: { label: 'Applied', bg: '#F5F3FF', fg: '#5B21B6', dot: '#8B5CF6' },
-  enrolled: { label: 'Enrolled', bg: '#ECFDF5', fg: '#065F46', dot: '#10B981' },
-  dropped: { label: 'Dropped', bg: '#FEF2F2', fg: '#991B1B', dot: '#EF4444' },
+  new:        { label: 'New',        dot: '#6366F1', light: { bg: '#EEF2FF', fg: '#4338CA' }, dark: { bg: 'rgba(99,102,241,0.15)',  fg: '#A5B4FC' } },
+  contacted:  { label: 'Contacted',  dot: '#06B6D4', light: { bg: '#ECFEFF', fg: '#0E7490' }, dark: { bg: 'rgba(6,182,212,0.13)',   fg: '#67E8F9' } },
+  interested: { label: 'Interested', dot: '#F59E0B', light: { bg: '#FEF3C7', fg: '#92400E' }, dark: { bg: 'rgba(245,158,11,0.13)',  fg: '#FCD34D' } },
+  applied:    { label: 'Applied',    dot: '#8B5CF6', light: { bg: '#F5F3FF', fg: '#5B21B6' }, dark: { bg: 'rgba(139,92,246,0.15)', fg: '#C4B5FD' } },
+  enrolled:   { label: 'Enrolled',   dot: '#10B981', light: { bg: '#ECFDF5', fg: '#065F46' }, dark: { bg: 'rgba(16,185,129,0.13)', fg: '#6EE7B7' } },
+  dropped:    { label: 'Dropped',    dot: '#EF4444', light: { bg: '#FEF2F2', fg: '#991B1B' }, dark: { bg: 'rgba(239,68,68,0.13)',  fg: '#FCA5A5' } },
 }
 const niceLabel = (v) => v ? v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '-'
 
-const PALETTE = [
+const PALETTE_LIGHT = [
   { bg: '#EEF2FF', fg: '#4338CA' }, { bg: '#ECFDF5', fg: '#065F46' },
   { bg: '#FFFBEB', fg: '#92400E' }, { bg: '#FDF2F8', fg: '#9D174D' },
   { bg: '#ECFEFF', fg: '#155E75' }, { bg: '#FFF7ED', fg: '#9A3412' },
 ]
-function palette(name = '') {
+const PALETTE_DARK = [
+  { bg: 'rgba(99,102,241,0.18)',  fg: '#A5B4FC' }, { bg: 'rgba(16,185,129,0.15)', fg: '#6EE7B7' },
+  { bg: 'rgba(245,158,11,0.15)',  fg: '#FCD34D' }, { bg: 'rgba(236,72,153,0.15)', fg: '#F9A8D4' },
+  { bg: 'rgba(6,182,212,0.14)',   fg: '#67E8F9' }, { bg: 'rgba(249,115,22,0.15)', fg: '#FDBA74' },
+]
+function palette(name = '', theme = 'light') {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
-  return PALETTE[h % PALETTE.length]
+  const pal = theme === 'dark' ? PALETTE_DARK : PALETTE_LIGHT
+  return pal[h % pal.length]
 }
 
 function fmtDate(v) {
@@ -66,9 +73,10 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className={`relative w-full ${max} max-h-[90vh] overflow-y-auto rounded-xl bg-white shadow-2xl ring-1 ring-black/6`}
+            className={`relative w-full ${max} max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl`}
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between bg-white px-6 pt-6 pb-5">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-6 pb-5" style={{ background: 'var(--surface)' }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background: iconBg }}>
                   <Icon size={17} style={{ color: iconFg }} />
@@ -91,9 +99,11 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, iconBg = '#EEF2FF',
 }
 
 function StatusPill({ status }) {
+  const [theme] = useTheme()
   const m = STATUS_META[status] || STATUS_META.new
+  const c = theme === 'dark' ? m.dark : m.light
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: m.bg, color: m.fg }}>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: c.bg, color: c.fg }}>
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.dot }} />
       {m.label}
     </span>
@@ -109,8 +119,13 @@ function Toast({ toast }) {
           transition={{ type: 'spring', stiffness: 420, damping: 28 }}
           className="fixed top-8 right-8 z-[60]"
         >
-          <div className={`flex items-center gap-3 rounded-md px-5 py-3.5 text-sm font-medium shadow-2xl ring-1 ${toast.type === 'error' ? 'bg-white text-red-600 ring-red-200' : 'bg-gray-950 text-white ring-gray-800'
-            }`}>
+          <div
+            className="flex items-center gap-3 rounded-md px-5 py-3.5 text-sm font-medium shadow-2xl"
+            style={toast.type === 'error'
+              ? { background: 'var(--surface)', color: '#F87171', outline: '1px solid rgba(248,113,113,0.25)', boxShadow: 'var(--shadow-lg)' }
+              : { background: 'var(--ink)', color: 'var(--bg)', outline: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.28)' }
+            }
+          >
             {toast.type === 'error'
               ? <X size={15} className="shrink-0 text-red-500" />
               : <Check size={15} className="shrink-0 text-emerald-400" />}
@@ -178,8 +193,7 @@ function OrgPicker({ onSelect }) {
 
   return (
     <div
-      className="min-h-full px-8 py-7"
-      style={{ background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.07) 0%, transparent 70%), #F9FAFB' }}
+      className="app-page-bg min-h-full px-8 py-7"
     >
       <div className="mx-auto max-w-6xl">
         <h1 className="text-2xl font-bold text-gray-900">Pick an organization</h1>
@@ -292,6 +306,7 @@ const EXPORT_COLUMNS = [
 
 function CallsList({ orgId, isSuper, onBackToOrgs }) {
   const navigate = useNavigate()
+  const [theme] = useTheme()
   const [contacts, setContacts] = useState([])
   const [nextCursor, setNextCursor] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -568,8 +583,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
 
   return (
     <div
-      className="min-h-full px-8 py-7"
-      style={{ background: 'radial-gradient(ellipse 90% 40% at 60% -10%, rgba(99,102,241,0.07) 0%, transparent 70%), #F9FAFB' }}
+      className="app-page-bg min-h-full px-8 py-7"
     >
       <div className="mx-auto max-w-6xl">
         {/* Header */}
@@ -736,7 +750,7 @@ function CallsList({ orgId, isSuper, onBackToOrgs }) {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filtered.map((c) => {
-                    const p = palette(c.full_name || c.email || '')
+                    const p = palette(c.full_name || c.email || '', theme)
                     const initials = (c.full_name || c.email || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()
                     const isSel = selected.has(c.contact_id)
                     return (

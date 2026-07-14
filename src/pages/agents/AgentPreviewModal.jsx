@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTheme } from '../../hooks/useTheme'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useConversation } from '@elevenlabs/react'
 import {
@@ -264,6 +265,7 @@ export default function AgentPreviewModal({
   initialDynamicVariables,
   hasUnsavedChanges = false,
 }) {
+  const [theme] = useTheme()
   const [dynamicVariables, setDynamicVariables] = useState(initialDynamicVariables || {})
   const [errorMessage, setErrorMessage] = useState('')
   const [transcript, setTranscript] = useState([])
@@ -400,9 +402,10 @@ export default function AgentPreviewModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-            className="relative z-10 flex h-[min(92vh,760px)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-white shadow-2xl"
+            className="relative z-10 flex h-[min(92vh,760px)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl shadow-2xl"
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
           >
-            <div className="flex items-center justify-between gap-4 border-b border-gray-100 bg-slate-50/90 px-5 py-4">
+            <div className="flex items-center justify-between gap-4 px-5 py-4" style={{ borderBottom: '1px solid var(--hair)', background: 'var(--bg-2)' }}>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
@@ -427,14 +430,23 @@ export default function AgentPreviewModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-gray-200 bg-white p-2 text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
+                className="rounded-lg border border-gray-200 bg-gray-50 p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
               >
                 <X size={16} />
               </button>
             </div>
 
             <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="relative flex min-h-[320px] flex-col overflow-hidden border-b border-gray-100 bg-[radial-gradient(circle_at_top,#e0e7ff_0%,#eef2ff_35%,#f8fafc_72%)] lg:border-b-0 lg:border-r">
+              <div
+                className="relative flex min-h-[320px] flex-col overflow-hidden lg:border-b-0 lg:border-r"
+                style={{
+                  borderBottom: '1px solid var(--hair)',
+                  borderRight: '1px solid var(--hair)',
+                  background: theme === 'dark'
+                    ? 'radial-gradient(circle at top, rgba(79,70,229,0.18) 0%, rgba(99,102,241,0.08) 35%, var(--bg) 72%)'
+                    : 'radial-gradient(circle at top, #e0e7ff 0%, #eef2ff 35%, #f8fafc 72%)',
+                }}
+              >
                 <div className="relative min-h-0 flex-[0.78]">
                   <DottedSphere
                     color="#4f46e5"
@@ -452,7 +464,7 @@ export default function AgentPreviewModal({
                   {isConnected && (latestAgentMessage || latestUserMessage) ? (
                     <div className="absolute bottom-4 left-4 z-10 max-w-[min(92%,320px)] space-y-2">
                       {latestAgentMessage ? (
-                        <div className="rounded-2xl border border-indigo-100 bg-white/85 px-3.5 py-3 shadow-lg backdrop-blur">
+                        <div className="rounded-2xl border border-indigo-100 bg-white/85 px-3.5 py-3 shadow-lg backdrop-blur" style={{ background: 'color-mix(in srgb, var(--surface) 85%, transparent)' }}>
                           <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Agent</p>
                           <p className="mt-1 text-sm leading-relaxed text-gray-800">{latestAgentMessage.text}</p>
                         </div>
@@ -467,7 +479,14 @@ export default function AgentPreviewModal({
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-center gap-3 border-t border-white/30 bg-white/55 px-4 py-2.5 backdrop-blur">
+                <div
+                  className="flex items-center justify-center gap-3 px-4 py-2.5"
+                  style={{
+                    borderTop: theme === 'dark' ? 'none' : '1px solid var(--hair)',
+                    background: theme === 'dark' ? 'transparent' : 'rgba(255,255,255,0.55)',
+                    backdropFilter: theme === 'dark' ? 'none' : 'blur(12px)',
+                  }}
+                >
                   {isConnecting ? (
                     <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
                       <Loader2 size={16} className="animate-spin" />
@@ -484,7 +503,7 @@ export default function AgentPreviewModal({
                           'flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition hover:-translate-y-0.5',
                           isMuted
                             ? 'border-slate-500 bg-slate-500 text-white'
-                            : 'border-indigo-200 bg-white text-indigo-600',
+                            : 'border-indigo-200 bg-indigo-50 text-indigo-600',
                         )}
                       >
                         {isMuted ? <MicOff size={17} /> : <Mic size={17} />}
@@ -513,7 +532,7 @@ export default function AgentPreviewModal({
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-col bg-white">
+              <div className="flex min-h-0 flex-col" style={{ background: 'var(--surface)' }}>
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
                   <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
                     {[
@@ -538,7 +557,7 @@ export default function AgentPreviewModal({
                             'ml-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none',
                             activePanel === panel.id
                               ? 'bg-white/20 text-white'
-                              : 'bg-white text-gray-500 ring-1 ring-gray-200',
+                              : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200',
                           )}
                         >
                           {panel.id === 'variables' ? variableNames.length : transcript.length}

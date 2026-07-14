@@ -168,7 +168,7 @@ function distributionEntries(dist, styles = {}) {
 function Surface({ className = '', children, tint = 'white' }) {
   const bg = tint === 'soft' ? 'bg-[#f1f4fb]' : 'bg-white'
   return (
-    <div className={`rounded-xl ${bg} shadow-[0_16px_40px_rgba(15,23,42,0.06)] ${className}`}>
+    <div className={`rounded-xl ${bg} ${className}`} style={{ boxShadow: 'var(--shadow-md)' }}>
       {children}
     </div>
   )
@@ -246,7 +246,7 @@ function DistributionVisual({ items, emptyLabel = 'No data available yet.' }) {
     <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
       <div className="relative shrink-0 mx-auto lg:mx-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={r} stroke="#f1f5f9" strokeWidth={stroke} fill="none" />
+          <circle cx={size / 2} cy={size / 2} r={r} style={{ stroke: 'var(--hair)' }} strokeWidth={stroke} fill="none" />
           {items.map((item, idx) => {
             const len = (item.count / total) * circ
             if (len <= 0) return null
@@ -530,8 +530,8 @@ function SentimentChart({ points }) {
           const y = yAt(t)
           return (
             <g key={t}>
-              <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="3 4" />
-              <text x={padL - 8} y={y + 3} textAnchor="end" fontSize="10" fill="#94a3b8">{t}</text>
+              <line x1={padL} x2={W - padR} y1={y} y2={y} style={{ stroke: 'var(--hair-2)' }} strokeDasharray="3 4" />
+              <text x={padL - 8} y={y + 3} textAnchor="end" fontSize="10" style={{ fill: 'var(--ink-4)' }}>{t}</text>
             </g>
           )
         })}
@@ -544,16 +544,16 @@ function SentimentChart({ points }) {
           const cy = yAt(d.score)
           return (
             <g key={d.label}>
-              <circle cx={cx} cy={cy} r="5" fill="#fff" stroke="#6366f1" strokeWidth="2.5" />
+              <circle cx={cx} cy={cy} r="5" style={{ fill: 'var(--surface)' }} stroke="#6366f1" strokeWidth="2.5" />
               {d.hasScore && (
-                <text x={cx} y={cy - 12} textAnchor="middle" fontSize="11" fontWeight="600" fill="#0f172a">
+                <text x={cx} y={cy - 12} textAnchor="middle" fontSize="11" fontWeight="600" style={{ fill: 'var(--ink)' }}>
                   {d.score.toFixed(1)}
                 </text>
               )}
-              <text x={cx} y={H - 18} textAnchor="middle" fontSize="10" fontWeight="700" fill="#94a3b8" letterSpacing="1.6">
+              <text x={cx} y={H - 18} textAnchor="middle" fontSize="10" fontWeight="700" style={{ fill: 'var(--ink-4)' }} letterSpacing="1.6">
                 {d.label.toUpperCase()}
               </text>
-              <text x={cx} y={H - 4} textAnchor="middle" fontSize="10" fill="#64748b">
+              <text x={cx} y={H - 4} textAnchor="middle" fontSize="10" style={{ fill: 'var(--ink-3)' }}>
                 {d.moodLabel}
               </text>
             </g>
@@ -588,9 +588,9 @@ function BooleanRateRow({ label, pct, good = false }) {
 function LoadingState() {
   return (
     <div className="space-y-6">
-      <div className="h-64 animate-pulse rounded-[32px] bg-white shadow-[0_16px_40px_rgba(15,23,42,0.06)]" />
-      <div className="h-[440px] animate-pulse rounded-[32px] bg-white shadow-[0_16px_40px_rgba(15,23,42,0.06)]" />
-      <div className="h-[560px] animate-pulse rounded-[32px] bg-white shadow-[0_16px_40px_rgba(15,23,42,0.06)]" />
+      <div className="h-64 animate-pulse rounded-[32px] bg-white" style={{ boxShadow: 'var(--shadow-md)' }} />
+      <div className="h-[440px] animate-pulse rounded-[32px] bg-white" style={{ boxShadow: 'var(--shadow-md)' }} />
+      <div className="h-[560px] animate-pulse rounded-[32px] bg-white" style={{ boxShadow: 'var(--shadow-md)' }} />
     </div>
   )
 }

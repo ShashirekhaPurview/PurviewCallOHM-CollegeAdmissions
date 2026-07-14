@@ -183,7 +183,8 @@ function Modal({ open, onClose, title, subtitle, icon: Icon, children, max = 'ma
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 360, damping: 28 }}
-            className={cn('relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/5', max)}
+            className={cn('relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden rounded-xl shadow-2xl', max)}
+            style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-5 py-3.5">
               <div className="flex items-center gap-3">
@@ -577,7 +578,7 @@ function EditPromptModal({ open, value, onChange, onClose, llm }) {
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-2.5 text-[11px] text-gray-500">
           <span className="font-mono">{lineCount} lines · {charCount} characters</span>
           <span className="hidden sm:block">
-            Use <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] text-indigo-700 ring-1 ring-gray-200">{'{{variable_name}}'}</code> for dynamic values
+            Use <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-indigo-600 ring-1 ring-gray-200">{'{{variable_name}}'}</code> for dynamic values
           </span>
         </div>
         <div className="min-h-0 flex-1 p-4">
@@ -673,6 +674,43 @@ function AddTextModal({ open, onClose, onSubmit, busy }) {
   )
 }
 
+function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', confirmVariant = 'danger', onConfirm, onCancel }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[4px]" onClick={onCancel} />
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+        style={{ background: 'var(--surface)', outline: '1px solid var(--hair)' }}
+      >
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <p className="mt-2 text-sm leading-relaxed text-gray-500">{message}</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={cn(
+              'rounded-xl px-4 py-2 text-sm font-semibold text-white transition',
+              confirmVariant === 'danger'
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-indigo-600 hover:bg-indigo-500',
+            )}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function KnowledgeBaseManager({ linkedDocs, onChange }) {
   const [documents, setDocuments] = useState([])
   const [loading, setLoading] = useState(false)
@@ -682,6 +720,8 @@ function KnowledgeBaseManager({ linkedDocs, onChange }) {
   const [uploading, setUploading] = useState(false)
   const [showTextModal, setShowTextModal] = useState(false)
   const [creatingText, setCreatingText] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
   const fileRef = useRef(null)
 
   const loadDocuments = useCallback(async () => {
@@ -771,31 +811,38 @@ function KnowledgeBaseManager({ linkedDocs, onChange }) {
 
   async function handleDeleteSelected() {
     if (!selectedDoc) return
+    setDeleteError('')
+    setConfirmDialog({
+      title: 'Delete document?',
+      message: `"${selectedDoc.name || selectedDoc.id}" will be permanently deleted and unlinked from all agents.`,
+      confirmLabel: 'Delete',
+      onConfirm: () => executeDelete(false),
+    })
+  }
+
+  async function executeDelete(force) {
+    setConfirmDialog(null)
     try {
-      await deleteKnowledgeBaseDocument(selectedDoc.id)
+      await deleteKnowledgeBaseDocument(selectedDoc.id, force ? { force: true } : undefined)
+      onChange(linkedDocs.filter((entry) => entry.id !== selectedDoc.id))
+      setSelectedDoc(null)
+      setDetail(null)
+      await loadDocuments()
     } catch (err) {
       const status = err?.status
       const message = String(err?.message || '')
       const isInUse = status === 409 || /409|conflict|in.?use|referenc/i.test(message)
-      if (!isInUse) {
-        alert(message || 'Failed to delete the document.')
-        return
-      }
-      const confirmed = window.confirm(
-        'This document is linked to one or more agents in your workspace. Force-delete it everywhere? This will unlink it from those agents too.',
-      )
-      if (!confirmed) return
-      try {
-        await deleteKnowledgeBaseDocument(selectedDoc.id, { force: true })
-      } catch (forceErr) {
-        alert(forceErr?.message || 'Force delete failed.')
-        return
+      if (isInUse) {
+        setConfirmDialog({
+          title: 'Document is in use',
+          message: 'This document is linked to one or more agents in your workspace. Force-delete it everywhere? This will unlink it from those agents too.',
+          confirmLabel: 'Force delete',
+          onConfirm: () => executeDelete(true),
+        })
+      } else {
+        setDeleteError(message || 'Failed to delete the document.')
       }
     }
-    onChange(linkedDocs.filter((entry) => entry.id !== selectedDoc.id))
-    setSelectedDoc(null)
-    setDetail(null)
-    await loadDocuments()
   }
 
   return (
@@ -1004,6 +1051,11 @@ function KnowledgeBaseManager({ linkedDocs, onChange }) {
                   )}
                 </div>
 
+                {deleteError ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50/60 px-3 py-2 text-xs font-medium text-red-700">
+                    {deleteError}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleDeleteSelected}
@@ -1022,6 +1074,15 @@ function KnowledgeBaseManager({ linkedDocs, onChange }) {
         onClose={() => setShowTextModal(false)}
         onSubmit={handleTextCreate}
         busy={creatingText}
+      />
+
+      <ConfirmDialog
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
       />
     </>
   )
@@ -1207,7 +1268,7 @@ export default function AgentPage() {
     }
   }
 
-  const pageBg = { background: '#F8FAFC' }
+  const pageBg = { background: 'var(--bg)' }
 
   if (loading) {
     return (

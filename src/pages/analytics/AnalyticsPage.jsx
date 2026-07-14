@@ -40,6 +40,7 @@ import {
 import * as XLSX from 'xlsx'
 import { getConversation, getConversationAudio, listConversations } from '../../api/analytics/analyticsService'
 import { getCurrentUser } from '../../api/auth/authService'
+import { useTheme } from '../../hooks/useTheme'
 import { listOrganizations } from '../../api/orgs/orgService'
 import { getContact } from '../../api/contacts/contactService'
 
@@ -250,6 +251,7 @@ function SignalBadge({ label, value, good = false, bad = false }) {
 }
 
 function ScoreRing({ score, size = 96 }) {
+  const [theme] = useTheme()
   const value = getScoreValue(score)
   const pct = value == null ? 0 : Math.max(0, Math.min(100, (value / 10) * 100))
   const stroke = 8
@@ -261,11 +263,12 @@ function ScoreRing({ score, size = 96 }) {
       : value >= 6 ? '#0ea5e9'
         : value >= 4 ? '#f59e0b'
           : '#f43f5e'
+  const trackColor = theme === 'dark' ? '#1E3128' : '#e2e8f0'
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#e2e8f0" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -289,17 +292,33 @@ function ScoreRing({ score, size = 96 }) {
 }
 
 function HeroStat({ icon: Icon, label, value, accent = 'indigo' }) {
-  const tones = {
-    indigo: 'from-indigo-50 to-white text-indigo-600 ring-indigo-100',
-    sky: 'from-sky-50 to-white text-sky-600 ring-sky-100',
-    emerald: 'from-emerald-50 to-white text-emerald-600 ring-emerald-100',
-    amber: 'from-amber-50 to-white text-amber-600 ring-amber-100',
-    violet: 'from-violet-50 to-white text-violet-600 ring-violet-100',
-    rose: 'from-rose-50 to-white text-rose-600 ring-rose-100',
+  const [theme] = useTheme()
+  const light = {
+    indigo:  { bg: 'rgba(238,242,255,1)',   ring: 'ring-indigo-100',  icon: 'text-indigo-600' },
+    sky:     { bg: 'rgba(236,254,255,1)',   ring: 'ring-sky-100',     icon: 'text-sky-600' },
+    emerald: { bg: 'rgba(236,253,245,1)',   ring: 'ring-emerald-100', icon: 'text-emerald-600' },
+    amber:   { bg: 'rgba(255,251,235,1)',   ring: 'ring-amber-100',   icon: 'text-amber-600' },
+    violet:  { bg: 'rgba(245,243,255,1)',   ring: 'ring-violet-100',  icon: 'text-violet-600' },
+    rose:    { bg: 'rgba(255,241,242,1)',   ring: 'ring-rose-100',    icon: 'text-rose-600' },
   }
+  const dark = {
+    indigo:  { bg: 'rgba(99,102,241,0.10)',  ring: 'ring-indigo-100',  icon: 'text-indigo-400' },
+    sky:     { bg: 'rgba(56,189,248,0.10)',  ring: 'ring-sky-100',     icon: 'text-sky-400' },
+    emerald: { bg: 'rgba(52,211,153,0.10)',  ring: 'ring-emerald-100', icon: 'text-emerald-400' },
+    amber:   { bg: 'rgba(245,158,11,0.10)',  ring: 'ring-amber-100',   icon: 'text-amber-400' },
+    violet:  { bg: 'rgba(167,139,250,0.10)', ring: 'ring-violet-100',  icon: 'text-violet-400' },
+    rose:    { bg: 'rgba(251,113,133,0.10)', ring: 'ring-rose-100',    icon: 'text-rose-400' },
+  }
+  const t = (theme === 'dark' ? dark : light)[accent] || (theme === 'dark' ? dark : light).indigo
   return (
-    <div className={`flex items-center gap-3 rounded-md bg-gradient-to-br p-4 ring-1 ${tones[accent] || tones.indigo}`}>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm">
+    <div
+      className={`flex items-center gap-3 rounded-md p-4 ring-1 ${t.ring}`}
+      style={{ background: t.bg }}
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm ${t.icon}`}
+        style={{ background: theme === 'dark' ? 'rgba(0,0,0,0.25)' : '#ffffff' }}
+      >
         {Icon && <Icon size={18} />}
       </span>
       <div className="min-w-0">
@@ -889,6 +908,7 @@ function OrgPicker({ value, onChange, orgs, loading }) {
 }
 
 function SentimentChart({ points }) {
+  const [theme] = useTheme()
   const width = 720
   const height = 240
   const padX = 40
@@ -932,7 +952,10 @@ function SentimentChart({ points }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-md bg-gradient-to-br from-slate-50 to-white p-4 ring-1 ring-slate-100">
+    <div
+      className="overflow-hidden rounded-md p-4 ring-1 ring-slate-100"
+      style={{ background: theme === 'dark' ? 'var(--surface)' : undefined }}
+    >
       <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id="sentArea" x1="0" y1="0" x2="0" y2="1">
@@ -1013,6 +1036,7 @@ function DetailSkeleton() {
 }
 
 function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [], onBack }) {
+  const [theme] = useTheme()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -1193,7 +1217,14 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
       ) : (
         <div className="space-y-6">
           <Surface className="overflow-hidden">
-            <div className="relative overflow-hidden bg-[linear-gradient(135deg,#ffffff_0%,#f7f8fc_58%,#edf1ff_100%)] px-8 py-8">
+            <div
+              className="relative overflow-hidden px-8 py-8"
+              style={{
+                background: theme === 'dark'
+                  ? 'radial-gradient(circle at top right, rgba(79,70,229,0.12) 0%, rgba(99,102,241,0.05) 40%, var(--bg) 72%)'
+                  : 'linear-gradient(135deg,#ffffff 0%,#f7f8fc 58%,#edf1ff 100%)',
+              }}
+            >
               <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-200/30 blur-3xl" />
               <div className="pointer-events-none absolute -left-12 -bottom-12 h-48 w-48 rounded-full bg-violet-200/20 blur-3xl" />
 
@@ -1203,7 +1234,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
                 </div>
 
                 <div className="flex justify-center lg:justify-end">
-                  <div className="flex flex-col items-center gap-2 rounded-lg bg-white/80 px-6 py-4 ring-1 ring-slate-100">
+                  <div
+                    className="flex flex-col items-center gap-2 rounded-lg px-6 py-4 ring-1 ring-slate-100"
+                    style={{ background: theme === 'dark' ? 'var(--surface)' : 'rgba(255,255,255,0.80)' }}
+                  >
                     <ScoreRing score={scores.overall_call_score ?? summary?.overall_call_score} />
                     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Overall</p>
                   </div>
@@ -1222,7 +1256,13 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
                 />
               </div>
 
-              <div className="relative mt-6 rounded-lg bg-white/85 p-5 ring-1 ring-slate-100 backdrop-blur">
+              <div
+                className="relative mt-6 rounded-lg p-5 ring-1 ring-slate-100"
+                style={{
+                  background: theme === 'dark' ? 'var(--surface)' : 'rgba(255,255,255,0.85)',
+                  backdropFilter: theme === 'dark' ? 'none' : 'blur(12px)',
+                }}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
@@ -1382,7 +1422,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
                   {transcript.length === 0 ? (
                     <p className="text-sm text-slate-500">No transcript was attached to this conversation.</p>
                   ) : (
-                    <div className="space-y-4 rounded-lg bg-gradient-to-b from-slate-50/80 to-white p-5 ring-1 ring-slate-100">
+                    <div
+                      className="space-y-4 rounded-lg p-5 ring-1 ring-slate-100"
+                      style={{ background: theme === 'dark' ? 'var(--surface)' : undefined }}
+                    >
                       {transcript
                         .filter((turn) => turn.message && String(turn.message).trim())
                         .map((turn, index) => (
@@ -1395,7 +1438,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
 
               {activeTab === 'metadata' && (
                 <ArticleSection title="Call metadata" icon={Info}>
-                  <div className="grid gap-4 rounded-lg bg-gradient-to-b from-slate-50/40 to-white p-6 ring-1 ring-slate-100 sm:grid-cols-2">
+                  <div
+                    className="grid gap-4 rounded-lg p-6 ring-1 ring-slate-100 sm:grid-cols-2"
+                    style={{ background: theme === 'dark' ? 'var(--surface)' : undefined }}
+                  >
                     <IconMetaRow icon={Calendar} label="Call date" value={formatDate(callDate)} />
                     <IconMetaRow icon={Clock} label="Processed" value={formatDateTime(processedAt)} />
                     <IconMetaRow icon={Activity} label="Duration" value={formatDuration(durationValue)} />
@@ -1414,7 +1460,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
               {activeTab === 'profile' && (
                 <ArticleSection title="User profile" icon={UserCheck}>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between rounded-lg bg-gradient-to-br from-violet-50 via-indigo-50 to-sky-50 px-6 py-5 ring-1 ring-violet-100">
+                    <div
+                      className="flex items-center justify-between rounded-lg bg-gradient-to-br from-violet-50 via-indigo-50 to-sky-50 px-6 py-5 ring-1 ring-violet-100"
+                      style={{ background: theme === 'dark' ? 'rgba(99,102,241,0.1)' : undefined }}
+                    >
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Dominant mood</p>
                         <p className="mt-1 text-2xl font-bold text-slate-900">
@@ -1460,7 +1509,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
                   {!callProfile ? (
                     <p className="text-sm text-slate-500">No call profile captured for this contact.</p>
                   ) : (
-                    <div className="space-y-4 rounded-lg bg-gradient-to-b from-slate-50/40 to-white p-6 ring-1 ring-slate-100">
+                    <div
+                      className="space-y-4 rounded-lg p-6 ring-1 ring-slate-100"
+                      style={{ background: theme === 'dark' ? 'var(--surface)' : undefined }}
+                    >
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-slate-500">Interested</span>
                         <span className="font-semibold text-slate-900">{callProfile.interested ? 'Yes' : 'No'}</span>
@@ -1512,7 +1564,10 @@ function ConversationDetail({ conversationId, summary, orgId, fallbackOrgIds = [
                     </div>
 
                     {actions.callback_time_utc && (
-                      <div className="rounded-lg bg-gradient-to-br from-amber-50 to-white px-5 py-4 ring-1 ring-amber-100">
+                      <div
+                        className="rounded-lg bg-gradient-to-br from-amber-50 to-white px-5 py-4 ring-1 ring-amber-100"
+                        style={{ background: theme === 'dark' ? 'rgba(245,158,11,0.08)' : undefined }}
+                      >
                         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-amber-700">Callback Requested At</p>
                         <p className="mt-1 text-base font-semibold text-slate-900">{formatDateTime(actions.callback_time_utc)}</p>
                       </div>

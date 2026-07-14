@@ -4,33 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Users, UserCog, Target, Phone, BarChart3, CalendarCheck,
   LogOut, Menu, X, Building2, Sparkles, MessageSquare, User, ChevronLeft, CircleAlert, RefreshCw, Bot,
+  Sun, Moon,
 } from 'lucide-react'
 import { logout, getCurrentUser } from '../api/auth/authService'
+import { useTheme } from '../hooks/useTheme'
 
-/* sidebar light palette */
-const D = {
-  bg: '#FFFFFF',
-  bgSoft: '#F9FAFB',
-  border: '#F3F4F6',
-  text: '#111827',
-  textDim: '#6B7280',
-  textMuted: '#9CA3AF',
-  hover: '#F3F4F6',
-  activeText: '#4F46E5',
-}
-
-/* light app palette (used in topbar + main) */
-const C = {
-  brand: '#6366F1',
-  brandDim: '#4F46E5',
-  base: '#F9FAFB',
-  surface: '#FFFFFF',
-  elevated: '#F3F4F6',
-  subtle: '#E5E7EB',
-  ink: '#111827',
-  ink2: '#4B5563',
-  ink3: '#9CA3AF',
-}
 
 function getNav(role) {
   if (role === 'super_admin') {
@@ -160,11 +138,12 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogo
 
   return (
     <aside
-      className="flex h-full flex-col border-r border-gray-200/50"
+      className="flex h-full flex-col"
       style={{
-        background: 'rgba(255, 255, 255, 0.75)',
+        background: 'color-mix(in srgb, var(--surface) 85%, transparent)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
+        borderRight: '1px solid var(--hair)',
         width: mobile ? 264 : (collapsed ? 72 : 248),
         transition: 'width 0.25s cubic-bezier(0.22,1,0.36,1)',
       }}
@@ -172,7 +151,7 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogo
       {/* Logo / header */}
       <div
         className="flex shrink-0 items-center"
-        style={{ borderBottom: `1px solid ${D.border}`, minHeight: 64, padding: '0 16px' }}
+        style={{ borderBottom: '1px solid var(--hair)', minHeight: 64, padding: '0 16px' }}
       >
         {collapsed && !mobile ? (
           <button
@@ -188,26 +167,21 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogo
               <img src="/callohm-logo.png" alt="CallOHM" className="h-8 object-contain" />
             </div>
             <div className="ml-3 flex-1 overflow-hidden">
-              <p className="text-base font-bold leading-none" style={{ color: D.activeText }}>CallOHM</p>
-              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.18em]" style={{ color: D.textMuted }}>
+              <p className="text-base font-bold leading-none text-indigo-600">CallOHM</p>
+              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-gray-400">
                 Admissions
               </p>
             </div>
             {mobile ? (
-              <button onClick={onClose} className="rounded-md p-1.5 transition-colors"
-                style={{ color: D.textDim }}
-                onMouseEnter={e => { e.currentTarget.style.background = D.hover; e.currentTarget.style.color = D.text }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = D.textDim }}
+              <button onClick={onClose}
+                className="rounded-md p-1.5 transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-900"
               >
                 <X size={16} />
               </button>
             ) : (
               <button
                 onClick={() => setCollapsed(true)}
-                className="rounded-md p-1.5 transition-colors"
-                style={{ color: D.textDim }}
-                onMouseEnter={e => { e.currentTarget.style.background = D.hover; e.currentTarget.style.color = D.text }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = D.textDim }}
+                className="rounded-md p-1.5 transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-900"
                 title="Collapse sidebar"
               >
                 <ChevronLeft size={15} />
@@ -226,13 +200,15 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogo
         </div>
       </nav>
 
-      <div className="shrink-0 border-t border-gray-200/70 p-3">
+      <div className="shrink-0 p-3" style={{ borderTop: '1px solid var(--hair)' }}>
         {!isCollapsed && (
-          <div className="mb-3 rounded-2xl border border-gray-200/70 bg-white/70 px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-gray-900">
+          <div className="mb-3 rounded-2xl px-3 py-2.5"
+            style={{ border: '1px solid var(--hair)', background: 'color-mix(in srgb, var(--surface) 70%, transparent)' }}
+          >
+            <p className="truncate text-sm font-semibold" style={{ color: 'var(--ink)' }}>
               {me?.email?.split('@')[0] || 'User'}
             </p>
-            <p className="truncate text-xs text-gray-500">{roleLabel}</p>
+            <p className="truncate text-xs" style={{ color: 'var(--ink-3)' }}>{roleLabel}</p>
           </div>
         )}
 
@@ -253,7 +229,7 @@ function Sidebar({ collapsed, setCollapsed, onClose, mobile, role, onRequestLogo
   )
 }
 
-function TopBar({ onMenuClick, role, onRequestLogout }) {
+function TopBar({ onMenuClick, role, onRequestLogout, theme, toggleTheme }) {
   const location = useLocation()
   const [profileOpen, setProfileOpen] = useState(false)
   const me = getCurrentUser()
@@ -266,26 +242,33 @@ function TopBar({ onMenuClick, role, onRequestLogout }) {
   return (
     <header
       className="flex shrink-0 items-center gap-4 px-6"
-      style={{ height: 64, background: C.surface, borderBottom: `1px solid ${C.subtle}` }}
+      style={{ height: 64, background: 'var(--surface)', borderBottom: '1px solid var(--hair)' }}
     >
       <button
         onClick={onMenuClick}
-        className="rounded-lg p-2 transition-colors lg:hidden"
-        style={{ color: C.ink2 }}
-        onMouseEnter={e => e.currentTarget.style.background = C.elevated}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        className="rounded-lg p-2 transition-colors text-gray-600 hover:bg-gray-100 lg:hidden"
       >
         <Menu size={18} />
       </button>
 
       {current && (
         <div className="flex items-center gap-2.5">
-          <current.icon size={18} style={{ color: C.brand, flexShrink: 0 }} />
-          <span className="text-base font-semibold" style={{ color: C.ink }}>{current.label}</span>
+          <current.icon size={18} className="text-indigo-500 shrink-0" />
+          <span className="text-base font-semibold" style={{ color: 'var(--ink)' }}>{current.label}</span>
         </div>
       )}
 
       <div className="flex-1" />
+
+      <button
+        type="button"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
+        style={{ color: 'var(--ink-3)' }}
+      >
+        {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+      </button>
 
       <div className="relative">
         <button
@@ -305,13 +288,14 @@ function TopBar({ onMenuClick, role, onRequestLogout }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black/5 z-50 overflow-hidden"
+                className="absolute right-0 mt-2 w-56 origin-top-right rounded-lg shadow-xl z-50 overflow-hidden"
+                style={{ background: 'var(--surface)', border: '1px solid var(--hair)', boxShadow: 'var(--shadow-lg)' }}
               >
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="truncate text-sm font-semibold text-gray-900">
+                <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--hair)' }}>
+                  <p className="truncate text-sm font-semibold" style={{ color: 'var(--ink)' }}>
                     {me?.email?.split('@')[0] || 'User'}
                   </p>
-                  <p className="truncate text-xs text-gray-500">{me?.email || 'user@example.com'}</p>
+                  <p className="truncate text-xs" style={{ color: 'var(--ink-3)' }}>{me?.email || 'user@example.com'}</p>
                 </div>
                 <div className="p-1">
                   <button
@@ -337,6 +321,7 @@ export default function AppLayout({ children, role }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [theme, toggleTheme] = useTheme()
 
   function openLogoutConfirm() {
     if (!loggingOut) setLogoutConfirmOpen(true)
@@ -357,7 +342,7 @@ export default function AppLayout({ children, role }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: C.base }}>
+    <div className="app-shell flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       {/* Desktop sidebar */}
       <div className="hidden h-full shrink-0 flex-col lg:flex" style={{ transition: 'width 0.25s', width: collapsed ? 72 : 248 }}>
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} role={role} onRequestLogout={openLogoutConfirm} />
@@ -395,7 +380,7 @@ export default function AppLayout({ children, role }) {
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <TopBar onMenuClick={() => setMobileOpen(true)} role={role} onRequestLogout={openLogoutConfirm} />
+        <TopBar onMenuClick={() => setMobileOpen(true)} role={role} onRequestLogout={openLogoutConfirm} theme={theme} toggleTheme={toggleTheme} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
 
